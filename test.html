@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Android MCP Setup Guide</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#818486",
+                    "secondary-fixed": "#d8e2ff",
+                    "surface-container-highest": "#d3e4fe",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "inverse-primary": "#bec6e0",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#cbdbf5",
+                    "on-tertiary-fixed-variant": "#444749",
+                    "on-error": "#ffffff",
+                    "on-background": "#0b1c30",
+                    "on-surface-variant": "#45464d",
+                    "on-tertiary-fixed": "#191c1e",
+                    "secondary-container": "#2170e4",
+                    "tertiary-container": "#191c1e",
+                    "on-error-container": "#93000a",
+                    "on-secondary-container": "#fefcff",
+                    "tertiary": "#000000",
+                    "secondary-fixed-dim": "#adc6ff",
+                    "error-container": "#ffdad6",
+                    "surface-bright": "#f8f9ff",
+                    "on-tertiary": "#ffffff",
+                    "outline-variant": "#c6c6cd",
+                    "tertiary-fixed-dim": "#c4c7c9",
+                    "on-secondary-fixed-variant": "#004395",
+                    "primary-container": "#131b2e",
+                    "on-surface": "#0b1c30",
+                    "on-primary": "#ffffff",
+                    "outline": "#76777d",
+                    "surface-container-low": "#eff4ff",
+                    "background": "#f8f9ff",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#eaf1ff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#131b2e",
+                    "secondary": "#0058be",
+                    "surface": "#f8f9ff",
+                    "primary-fixed": "#dae2fd",
+                    "surface-tint": "#565e74",
+                    "inverse-surface": "#213145",
+                    "on-primary-container": "#7c839b",
+                    "primary": "#000000",
+                    "surface-container": "#e5eeff",
+                    "on-secondary-fixed": "#001a42",
+                    "primary-fixed-dim": "#bec6e0",
+                    "surface-container-high": "#dce9ff",
+                    "surface-variant": "#d3e4fe",
+                    "tertiary-fixed": "#e0e3e5"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-lg": "24px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px",
+                    "stack-sm": "8px",
+                    "base": "4px",
+                    "section-gap": "64px",
+                    "stack-md": "16px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "code-block": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "code-block": ["14px", {"lineHeight": "22px", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md font-body-md antialiased md:hidden flex flex-col min-h-screen">
+<!-- Top App Bar (From Shared Components) -->
+<header class="bg-surface-container-lowest text-primary font-headline-md text-headline-md docked full-width top-0 sticky border-b border-outline-variant flat no shadows flex items-center justify-between px-margin-mobile w-full max-w-container-max mx-auto z-50 h-16">
+<button aria-label="Back" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Documentation</span>
+<button aria-label="Menu" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</header>
+<main class="flex-1 px-margin-mobile py-stack-lg space-y-stack-lg max-w-container-max mx-auto w-full">
+<!-- Header -->
+<section>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-stack-sm">Android MCP Setup Guide</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                This guide enables Claude to interact directly with your Android devices via Android Debug Bridge (ADB), allowing for advanced mobile development workflows.
+            </p>
+</section>
+<!-- Prerequisites -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-md">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-md flex items-center gap-stack-sm">
+<span class="material-symbols-outlined text-secondary" data-icon="check_circle">check_circle</span>
+                Prerequisites
+            </h2>
+<ul class="space-y-stack-sm">
+<li class="flex items-start gap-stack-sm">
+<span class="material-symbols-outlined text-outline mt-1" data-icon="desktop_windows">desktop_windows</span>
+<div>
+<strong class="text-on-surface">Claude Desktop</strong>
+<p class="text-on-surface-variant font-body-md text-body-md text-sm">Installed and configured.</p>
+</div>
+</li>
+<li class="flex items-start gap-stack-sm">
+<span class="material-symbols-outlined text-outline mt-1" data-icon="smartphone">smartphone</span>
+<div>
+<strong class="text-on-surface">Android Studio</strong>
+<p class="text-on-surface-variant font-body-md text-body-md text-sm">With Emulator setup or Physical device connected.</p>
+</div>
+</li>
+<li class="flex items-start gap-stack-sm">
+<span class="material-symbols-outlined text-outline mt-1" data-icon="code">code</span>
+<div>
+<strong class="text-on-surface">Python 3</strong>
+<p class="text-on-surface-variant font-body-md text-body-md text-sm">Installed with pip or uv package manager.</p>
+</div>
+</li>
+</ul>
+</section>
+<!-- Configuration Steps -->
+<section class="space-y-stack-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Configuration</h2>
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm">1</div>
+<h3 class="font-bold text-on-surface mb-base pt-1">Open Developer Settings</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-md">Launch Claude Desktop, navigate to <strong>Settings</strong> &gt; <strong>Developer</strong>.</p>
+</div>
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm">2</div>
+<h3 class="font-bold text-on-surface mb-base pt-1">Edit Configuration</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-sm">Open the <code class="bg-surface-container-low px-1 rounded text-primary font-code-block text-code-block">claude_desktop_config.json</code> file.</p>
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-stack-sm mb-stack-md">
+<h4 class="font-label-sm text-label-sm text-on-surface-variant mb-base uppercase tracking-wider">Config Paths</h4>
+<div class="space-y-base font-code-block text-code-block text-sm">
+<div class="flex flex-col">
+<span class="text-on-surface-variant text-xs">Mac:</span>
+<span class="text-on-surface">~/Library/Application Support/Claude/claude_desktop_config.json</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface-variant text-xs">Windows:</span>
+<span class="text-on-surface">%APPDATA%\Claude\claude_desktop_config.json</span>
+</div>
+</div>
+</div>
+</div>
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm">3</div>
+<h3 class="font-bold text-on-surface mb-base pt-1">Implementation</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-sm">Add the following JSON configuration to register the Android MCP server.</p>
+<div class="relative bg-on-background rounded-lg overflow-hidden group">
+<div class="flex items-center justify-between px-stack-sm py-2 bg-inverse-surface">
+<span class="font-code-block text-xs text-on-surface-variant">JSON</span>
+<button class="text-on-surface-variant hover:text-white transition-colors flex items-center gap-1 opacity-70 hover:opacity-100" onclick="alert('Copied to clipboard!')">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+<span class="font-label-sm text-[10px]">Copy</span>
+</button>
+</div>
+<pre class="p-stack-sm font-code-block text-code-block text-sm text-white overflow-x-auto"><code>{
+  "mcpServers": {
+    "android-mcp": {
+      "command": "uvx",
+      "args": ["android-mcp"]
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</section>
+<!-- Success Tip -->
+<div class="bg-surface-container-low border border-surface-container-highest rounded-lg p-stack-md flex items-start gap-stack-sm mt-section-gap">
+<span class="material-symbols-outlined text-secondary mt-1" data-icon="info">info</span>
+<div>
+<strong class="text-on-surface block mb-1">Setup Complete</strong>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">
+                    Restart Claude Desktop to apply the changes. You can now prompt Claude to list installed apps or run ADB commands.
+                </p>
+</div>
+</div>
+</main>
+<!-- Footer (From Shared Components - Hidden on mobile app flows typically, but included per instructions) -->
+<footer class="bg-surface-container-low border-t border-outline-variant py-stack-lg mt-stack-lg w-full">
+<div class="flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-gutter max-w-container-max mx-auto gap-stack-md">
+<span class="font-label-sm text-label-sm font-semibold text-primary">© 2024 MCP Documentation</span>
+<div class="flex flex-wrap gap-stack-md justify-center">
+<a class="font-label-sm text-label-sm text-on-tertiary-container hover:text-primary hover:underline transition-opacity duration-150" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-tertiary-container hover:text-primary hover:underline transition-opacity duration-150" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-tertiary-container hover:text-primary hover:underline transition-opacity duration-150" href="#">Github</a>
+</div>
+</div>
+</footer>
+</body></html>
