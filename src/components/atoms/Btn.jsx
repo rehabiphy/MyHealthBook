@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: SANS.semibold,
-    fontSize: 15,
+    fontSize: 16.5,
     letterSpacing: -0.15,
   },
 });

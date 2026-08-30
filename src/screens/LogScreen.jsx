@@ -138,7 +138,7 @@ export default function LogScreen() {
         </Card>
 
         <View style={styles.historyHeader}>
-          <Mono style={{ fontSize: 10.5 }}>History</Mono>
+          <Mono>History</Mono>
         </View>
         {list.length === 0 ? (
           <Card>
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   bmiRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   bmiValue: { fontFamily: SANS.bold, fontSize: 34, letterSpacing: -1.7, color: C.ink },
   bmiTag: { fontFamily: SANS.semibold, fontSize: 14 },
-  hint: { fontFamily: SANS.regular, fontSize: 12.5, color: C.ink2, lineHeight: 19, marginTop: 4 },
+  hint: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, lineHeight: 21, marginTop: 4 },
   historyHeader: { paddingTop: 26, paddingHorizontal: 4, paddingBottom: 10 },
   emptyText: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2 },
   historyRow: {

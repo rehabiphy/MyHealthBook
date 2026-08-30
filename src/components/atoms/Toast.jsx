@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: SANS.semibold,
-    fontSize: 14,
+    fontSize: 15,
     color: C.onPanel,
   },
 });

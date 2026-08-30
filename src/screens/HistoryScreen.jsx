@@ -147,7 +147,7 @@ export default function HistoryScreen() {
 
   const Field = ({ label, keyName, multi, placeholder }) => (
     <View style={{ marginTop: 18 }}>
-      <Mono style={{ fontSize: 11 }}>{label}</Mono>
+      <Mono>{label}</Mono>
       <TextInput
         value={draft[keyName]}
         onChangeText={t => setDraft({ ...draft, [keyName]: t })}
@@ -195,7 +195,7 @@ export default function HistoryScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <Head title={t.label} caption="fill in what you know · you can edit later" right={<CloseBtn onPress={() => setView('list')} />} />
         <Card style={{ padding: 20 }}>
-          <Mono style={{ fontSize: 11 }}>Date</Mono>
+          <Mono>Date</Mono>
           <Press onPress={() => setShowDatePicker(true)} style={styles.dateBtn}>
             <Text style={styles.dateBtnLabel}>{new Date(draft.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
           </Press>
@@ -219,7 +219,7 @@ export default function HistoryScreen() {
           {['treatment', 'diagnosis', 'procedure', 'other'].includes(k) && (
             <>
               <View style={styles.medSectionHeader}>
-                <Mono style={{ fontSize: 11 }}>Medicine prescribed then — optional</Mono>
+                <Mono>Medicine prescribed then — optional</Mono>
                 <Text style={styles.medSectionHint}>This is recorded as history. It does not become a medicine you are taking now.</Text>
               </View>
               <Field label="Medicine name" keyName="medName" />
@@ -228,7 +228,7 @@ export default function HistoryScreen() {
           )}
           <Field label="Notes" keyName="notes" multi />
           <View style={{ marginTop: 18 }}>
-            <Mono style={{ fontSize: 11 }}>Report</Mono>
+            <Mono>Report</Mono>
             <Press onPress={pickFile} style={styles.filePicker}>
               <Text style={styles.filePickerLabel}>{draft.file || 'Attach a photo or a file'}</Text>
             </Press>
@@ -253,7 +253,7 @@ export default function HistoryScreen() {
     const Line = ({ k, v }) =>
       v ? (
         <View style={styles.detailLine}>
-          <Mono style={{ fontSize: 11 }}>{k}</Mono>
+          <Mono>{k}</Mono>
           <Text style={styles.detailValue}>{v}</Text>
         </View>
       ) : null;
@@ -269,7 +269,7 @@ export default function HistoryScreen() {
             <View style={[styles.pickIcon, { width: 40, height: 40, backgroundColor: `${t.color}30`, borderColor: `${t.color}55` }]}>
               <TypeIcon k={r.type} color={t.color} />
             </View>
-            <Mono style={{ fontSize: 11 }}>{t.label}</Mono>
+            <Mono>{t.label}</Mono>
           </View>
           <Text style={styles.detailTitle}>{r.title}</Text>
           <View style={{ marginTop: 14 }}>
@@ -285,7 +285,7 @@ export default function HistoryScreen() {
           <Card style={{ marginTop: 10, padding: 20 }}>
             <View style={styles.detailTypeRow}>
               <View style={[styles.dot, { backgroundColor: C.elevated }]} />
-              <Mono style={{ fontSize: 11, color: C.elevated }}>Historical medicine</Mono>
+              <Mono style={{ color: C.elevated }}>Historical medicine</Mono>
             </View>
             <Text style={styles.medDetailName}>{r.medName}</Text>
             {r.medDose ? <Text style={styles.medDetailDose}>{r.medDose}</Text> : null}
@@ -356,7 +356,7 @@ export default function HistoryScreen() {
 
       {groups.map(g => (
         <View key={g.key} style={{ marginTop: 22 }}>
-          <Mono style={{ fontSize: 11, paddingHorizontal: 4, paddingBottom: 10 }}>{g.key}</Mono>
+          <Mono style={{ paddingHorizontal: 4, paddingBottom: 10 }}>{g.key}</Mono>
           {g.items.map(r => {
             const t = typeOf(r.type);
             const d = new Date(r.date);
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   medSectionHint: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2, marginTop: 6, lineHeight: 21 },
   filePicker: { marginTop: 8, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', borderRadius: 14, padding: 18, alignItems: 'center', backgroundColor: C.card },
   filePickerLabel: { fontFamily: SANS.semibold, fontSize: 16, color: C.ink },
-  fileHint: { fontFamily: SANS.regular, fontSize: 13, color: C.ink3, marginTop: 8, lineHeight: 19 },
+  fileHint: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, marginTop: 8, lineHeight: 21 },
   detailLine: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
   detailValue: { fontFamily: SANS.regular, fontSize: 16.5, color: C.ink, marginTop: 5, lineHeight: 24 },
   detailTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
@@ -437,10 +437,10 @@ const styles = StyleSheet.create({
   timelineRow: { flexDirection: 'row', gap: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.hair, borderRadius: 18, padding: 16, marginBottom: 8 },
   timelineDate: { flexShrink: 0, width: 52, height: 52, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   timelineDay: { fontFamily: SANS.bold, fontSize: 19, letterSpacing: -0.5, color: '#FFFFFF', lineHeight: 21 },
-  timelineMonth: { fontFamily: MONO.regular, fontSize: 8.5, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' },
+  timelineMonth: { fontFamily: MONO.medium, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.9)' },
   timelineTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   timelineTitle: { flex: 1, fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, color: C.ink },
   timelineIcon: { flexShrink: 0, width: 30, height: 30, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   timelineDetails: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, marginTop: 5, lineHeight: 20 },
-  timelineMedTag: { fontFamily: MONO.regular, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 8 },
+  timelineMedTag: { fontFamily: MONO.medium, fontSize: 12, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 8 },
 });

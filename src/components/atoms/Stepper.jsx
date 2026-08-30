@@ -70,7 +70,7 @@ export default function Stepper({ label, unit, value, set, step = 1, min, max, d
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Mono>{label}</Mono>
+        <Mono style={styles.label}>{label}</Mono>
         <Mono style={styles.rangeHint}>{editing ? 'enter to set' : `${min}–${max}`}</Mono>
       </View>
 
@@ -112,8 +112,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  label: {
+    color: C.ink2,
+  },
   rangeHint: {
-    fontSize: 9.5,
+    fontSize: 13,
+    color: C.ink2,
   },
   valueRow: {
     flexDirection: 'row',
@@ -171,6 +175,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   unit: {
-    fontSize: 10,
+    fontSize: 13.5,
   },
 });

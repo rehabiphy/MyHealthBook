@@ -151,8 +151,8 @@ const styles = StyleSheet.create({
   },
   preText: {
     fontFamily: MONO.regular,
-    fontSize: 11,
-    lineHeight: 19,
+    fontSize: 13.5,
+    lineHeight: 22,
     color: C.ink,
   },
   footer: {
@@ -166,11 +166,11 @@ const styles = StyleSheet.create({
   },
   note: {
     fontFamily: SANS.regular,
-    fontSize: 13,
+    fontSize: 14,
     color: C.ink2,
     textAlign: 'center',
     marginBottom: 2,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   row: { flexDirection: 'row', gap: 8 },
   rowBtn: { flex: 1, paddingVertical: 13 },
@@ -178,9 +178,9 @@ const styles = StyleSheet.create({
   rowBtnLabel: { fontFamily: SANS.semibold, fontSize: 15, color: C.ink },
   exportWrap: { marginTop: 2, alignItems: 'center', paddingVertical: 6 },
   exportLabel: {
-    fontFamily: MONO.regular,
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontFamily: MONO.medium,
+    fontSize: 13,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: C.ink3,
   },

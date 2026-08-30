@@ -47,6 +47,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: SANS.semibold,
-    fontSize: 13.5,
+    fontSize: 15,
   },
 });

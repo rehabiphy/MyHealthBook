@@ -42,7 +42,7 @@ export default function HealthScreen() {
       <Head title="Health Summary" caption="your important health information at a glance" icon={G.health(C.mint)} tint={C.mint} />
 
       <Card style={{ padding: 20 }}>
-        <Mono style={{ fontSize: 11 }}>Important conditions</Mono>
+        <Mono>Important conditions</Mono>
         {h.conditions.length === 0 && !edit && <Big style={{ color: C.ink3, marginTop: 10 }}>None recorded</Big>}
         <View style={{ marginTop: 10 }}>
           {h.conditions.map((c, i) => (
@@ -77,7 +77,7 @@ export default function HealthScreen() {
 
       <View style={styles.row}>
         <Card style={{ flex: 1, padding: 20 }}>
-          <Mono style={{ fontSize: 11 }}>Allergies</Mono>
+          <Mono>Allergies</Mono>
           {edit ? (
             <TextInput value={h.allergies} onChangeText={t => setH({ allergies: t })} placeholder="None known" placeholderTextColor={C.ink3} style={styles.allergyInput} />
           ) : (
@@ -85,7 +85,7 @@ export default function HealthScreen() {
           )}
         </Card>
         <Card style={{ width: 132, padding: 20 }}>
-          <Mono style={{ fontSize: 11 }}>Blood group</Mono>
+          <Mono>Blood group</Mono>
           {edit ? (
             <View style={styles.bgRow}>
               {BLOOD_GROUPS.map(b => (
@@ -106,8 +106,8 @@ export default function HealthScreen() {
 
       <Card style={{ marginTop: 10, padding: 20 }} onPress={() => go('meds')}>
         <View style={styles.rowBetween}>
-          <Mono style={{ fontSize: 11 }}>Current medications</Mono>
-          <Mono style={{ fontSize: 11 }}>{active.length} active</Mono>
+          <Mono>Current medications</Mono>
+          <Mono>{active.length} active</Mono>
         </View>
         {active.length === 0 ? (
           <Big style={{ color: C.ink3, marginTop: 10 }}>None added</Big>
@@ -126,13 +126,13 @@ export default function HealthScreen() {
       </Card>
 
       <Card style={{ marginTop: 10, padding: 20 }}>
-        <Mono style={{ fontSize: 11 }}>Recent health activity</Mono>
+        <Mono>Recent health activity</Mono>
         {recent.length === 0 ? (
           <Big style={{ color: C.ink3, marginTop: 10 }}>Nothing recorded yet</Big>
         ) : (
           recent.map((r, i) => (
             <View key={r.id} style={[styles.medRow, i < recent.length - 1 && styles.condRowBorder]}>
-              <Mono style={{ fontSize: 11 }}>{new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Mono>
+              <Mono>{new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Mono>
               <Big style={{ marginTop: 3 }}>{r.title}</Big>
               <Text style={styles.recentType}>{typeOf(r.type).label}</Text>
             </View>
@@ -144,7 +144,7 @@ export default function HealthScreen() {
       </Card>
 
       <Card style={{ marginTop: 10, padding: 20 }}>
-        <Mono style={{ fontSize: 11 }}>Upcoming</Mono>
+        <Mono>Upcoming</Mono>
         {refills.length === 0 && !(h.upcoming || []).length ? (
           <Big style={{ color: C.ink3, marginTop: 10 }}>Nothing coming up</Big>
         ) : (
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   bgRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   bgChip: { borderWidth: 1, borderColor: C.hair, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.10)' },
   bgChipOn: { backgroundColor: C.stage2, borderColor: C.stage2 },
-  bgChipLabel: { fontFamily: SANS.semibold, fontSize: 12, color: C.ink },
+  bgChipLabel: { fontFamily: SANS.semibold, fontSize: 14, color: C.ink },
   bgValue: { fontFamily: SANS.bold, fontSize: 30, letterSpacing: -1.2, marginTop: 8, color: C.ink },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   medRow: { paddingVertical: 12 },

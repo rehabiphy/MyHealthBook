@@ -83,7 +83,7 @@ export default function ViewerScreen() {
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
   latestCard: { backgroundColor: C.panel, borderRadius: 22, padding: 20, marginTop: 16 },
-  latestText: { fontFamily: MONO.regular, fontSize: 11.5, lineHeight: 20, color: C.onPanel, marginTop: 12 },
+  latestText: { fontFamily: MONO.regular, fontSize: 14, lineHeight: 23, color: C.onPanel, marginTop: 12 },
   pasteInput: {
     width: '100%',
     marginTop: 10,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 13,
     fontFamily: SANS.regular,
-    fontSize: 14,
+    fontSize: 15,
     color: C.ink,
     backgroundColor: 'rgba(255,255,255,0.10)',
     minHeight: 90,
@@ -100,5 +100,5 @@ const styles = StyleSheet.create({
   },
   row2: { flexDirection: 'row', gap: 8, marginTop: 10 },
   sectionPad: { paddingTop: 24, paddingHorizontal: 4, paddingBottom: 10 },
-  earlierText: { fontFamily: MONO.regular, fontSize: 10.5, lineHeight: 18, color: C.ink2, marginTop: 10 },
+  earlierText: { fontFamily: MONO.regular, fontSize: 13, lineHeight: 21, color: C.ink2, marginTop: 10 },
 });

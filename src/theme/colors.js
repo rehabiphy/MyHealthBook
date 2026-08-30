@@ -13,11 +13,11 @@ export const C = {
   panel: 'rgba(255,255,255,0.16)', // raised glass
   panelSoft: 'rgba(167,139,250,0.22)', // accent-tinted glass
   ink: '#FFFFFF',
-  ink2: 'rgba(255,255,255,0.76)',
-  ink3: 'rgba(255,255,255,0.54)',
+  ink2: 'rgba(255,255,255,0.86)', // body copy — bumped from 0.76 for legibility
+  ink3: 'rgba(255,255,255,0.74)', // captions/labels/timestamps — bumped from 0.54, was too washed out to read comfortably
   hair: 'rgba(255,255,255,0.20)',
   onPanel: '#FFFFFF',
-  onPanel2: 'rgba(255,255,255,0.72)',
+  onPanel2: 'rgba(255,255,255,0.82)',
   brand: '#B79CFF', // violet — the app's voice
   brand2: '#EC7FD0', // pink, the far end of every gradient
   mint: '#4ADE80',

@@ -92,5 +92,5 @@ function RootShell({ navigationRef, activeKey }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  loadingText: { fontSize: 12 },
+  loadingText: { fontSize: 14 },
 });

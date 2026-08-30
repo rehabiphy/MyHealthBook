@@ -20,7 +20,7 @@ export default function LearnScreen() {
         <Press key={i} onPress={() => setOpen(open === i ? null : i)} style={styles.card}>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Mono style={{ fontSize: 9.5 }}>{String(i + 1).padStart(2, '0')}</Mono>
+              <Mono>{String(i + 1).padStart(2, '0')}</Mono>
               <Text style={styles.title}>{a.t}</Text>
               <Text style={styles.desc}>{a.d}</Text>
             </View>
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 },
   title: { fontFamily: SANS.semibold, fontSize: 16.5, letterSpacing: -0.4, marginTop: 5, color: C.ink },
-  desc: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink2, marginTop: 3 },
+  desc: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 3 },
   chevron: { marginTop: 20, flexShrink: 0 },
   chevronOpen: { transform: [{ rotate: '180deg' }] },
   body: { marginTop: 16, borderTopWidth: 1, borderTopColor: C.hair, paddingTop: 14 },

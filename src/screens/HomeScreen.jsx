@@ -28,7 +28,7 @@ function Tile({ glyph, color, name, value, unit, when, onPress }) {
     <Card style={{ flex: 1, padding: 16 }} onPress={onPress}>
       <View style={styles.tileHeader}>
         <Chip color={color}>{glyph}</Chip>
-        <Mono style={{ fontSize: 9.5 }}>{name}</Mono>
+        <Mono style={styles.tileHeaderLabel}>{name}</Mono>
       </View>
       <View style={styles.tileValueRow}>
         <Text style={styles.tileValue}>{value}</Text>
@@ -123,8 +123,8 @@ export default function HomeScreen() {
         <>
           <View style={styles.sectionPad}>
             <View style={styles.medsHeaderRow}>
-              <Mono style={{ fontSize: 10.5 }}>Medicines today</Mono>
-              <Mono style={{ fontSize: 10.5 }}>
+              <Mono>Medicines today</Mono>
+              <Mono>
                 {doses.length - left.length}/{doses.length} taken
               </Mono>
             </View>
@@ -160,7 +160,7 @@ export default function HomeScreen() {
       </View>
       <View style={styles.row}>
         <Card style={{ flex: 1, padding: 16 }} onPress={() => go('log')}>
-          <Mono style={{ fontSize: 9.5 }}>Body mass</Mono>
+          <Mono>Body mass</Mono>
           <View style={styles.statValueRow}>
             <Text style={styles.statValue}>{bmi ?? '––'}</Text>
             <Text style={styles.statUnit}>bmi</Text>
@@ -168,7 +168,7 @@ export default function HomeScreen() {
           <Text style={[styles.statTag, { color: bmi ? classifyBMI(bmi).color : C.ink3 }]}>{bmi ? classifyBMI(bmi).label : 'add height & weight'}</Text>
         </Card>
         <Card style={{ flex: 1, padding: 16 }} onPress={() => go('log')}>
-          <Mono style={{ fontSize: 9.5 }}>Blood sugar</Mono>
+          <Mono>Blood sugar</Mono>
           <View style={styles.statValueRow}>
             <Text style={styles.statValue}>{sugar?.mgdl ?? '––'}</Text>
             <Text style={styles.statUnit}>mg/dl</Text>
@@ -224,14 +224,14 @@ export default function HomeScreen() {
       )}
       <View style={styles.row}>
         <Card style={{ flex: 1, padding: 18 }} onPress={() => go('health')}>
-          <Mono style={{ fontSize: 9.5 }}>Health summary</Mono>
+          <Mono>Health summary</Mono>
           <Text style={styles.linkTitle}>
             {(data.health?.conditions?.length || 0) > 0 ? `${data.health.conditions.length} condition${data.health.conditions.length === 1 ? '' : 's'}` : 'Set up'}
           </Text>
           <Mono style={{ marginTop: 5 }}>{data.health?.bloodGroup ? `blood ${data.health.bloodGroup}` : 'what matters today'}</Mono>
         </Card>
         <Card style={{ flex: 1, padding: 18 }} onPress={() => go('history')}>
-          <Mono style={{ fontSize: 9.5 }}>Medical records</Mono>
+          <Mono>Medical records</Mono>
           <Text style={styles.linkTitle}>{hist.length > 0 ? `${hist.length} record${hist.length === 1 ? '' : 's'}` : 'Add the past'}</Text>
           <Mono style={{ marginTop: 5 }}>{hist.length ? `last ${fmtDay([...hist].sort((a, b) => b.date - a.date)[0].date).toLowerCase()}` : 'tests, scans, surgery'}</Mono>
         </Card>
@@ -252,15 +252,16 @@ const styles = StyleSheet.create({
   greeting: { fontFamily: SANS.bold, fontSize: 31, letterSpacing: -1.2, lineHeight: 36 },
   bookRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   bookTitle: { fontFamily: SANS.bold, fontSize: 19, letterSpacing: -0.55, color: C.ink },
-  bookSub: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2, marginTop: 3, lineHeight: 20 },
+  bookSub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 3, lineHeight: 21 },
   sectionPad: { paddingTop: 26, paddingBottom: 10 },
-  sectionLabel: { fontSize: 10.5, paddingHorizontal: 4 },
+  sectionLabel: { paddingHorizontal: 4 },
   row: { flexDirection: 'row', gap: 10 },
   tileHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  tileHeaderLabel: { flex: 1, flexShrink: 1 },
   tileValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5, marginTop: 14 },
   tileValue: { fontFamily: SANS.bold, fontSize: 30, letterSpacing: -1.3, color: C.ink },
-  tileUnit: { fontFamily: SANS.medium, fontSize: 12, color: C.ink3 },
-  tileWhen: { fontFamily: SANS.regular, fontSize: 12.5, color: C.ink3, marginTop: 6 },
+  tileUnit: { fontFamily: SANS.medium, fontSize: 14, color: C.ink3 },
+  tileWhen: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, marginTop: 6 },
   bpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   bpLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   dot: { width: 9, height: 9, borderRadius: 99, flexShrink: 0 },
@@ -271,21 +272,21 @@ const styles = StyleSheet.create({
   medRowBorder: { borderBottomWidth: 1, borderBottomColor: C.hair },
   medName: { fontFamily: SANS.semibold, fontSize: 16.5, letterSpacing: -0.3, color: C.ink },
   medNameDone: { color: C.ink3, textDecorationLine: 'line-through' },
-  medWhen: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink3, marginTop: 3 },
+  medWhen: { fontFamily: SANS.regular, fontSize: 15, color: C.ink3, marginTop: 3 },
   moreRow: { paddingVertical: 13, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: C.hair },
   statValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5, marginTop: 12 },
   statValue: { fontFamily: SANS.bold, fontSize: 28, letterSpacing: -1.25, color: C.ink },
-  statUnit: { fontFamily: SANS.regular, fontSize: 12, color: C.ink3 },
-  statTag: { fontFamily: SANS.semibold, fontSize: 12.5, marginTop: 6 },
+  statUnit: { fontFamily: SANS.regular, fontSize: 14, color: C.ink3 },
+  statTag: { fontFamily: SANS.semibold, fontSize: 14.5, marginTop: 6 },
   legendRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSwatch: { width: 10, height: 2, borderRadius: 9 },
   trendFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.hair, paddingTop: 12 },
   trendFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   trendReading: { fontFamily: SANS.bold, fontSize: 15, letterSpacing: -0.3, color: C.ink },
-  trendCat: { fontFamily: SANS.semibold, fontSize: 12 },
+  trendCat: { fontFamily: SANS.semibold, fontSize: 14 },
   softCard: { backgroundColor: C.panelSoft, borderColor: C.hair },
   weeklyTitle: { fontFamily: SANS.semibold, fontSize: 16, letterSpacing: -0.4, marginTop: 7, color: C.ink },
   linkTitle: { fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, marginTop: 9, lineHeight: 21, color: C.ink },
-  coachSub: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink2, marginTop: 5, lineHeight: 20 },
+  coachSub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 5, lineHeight: 21 },
 });

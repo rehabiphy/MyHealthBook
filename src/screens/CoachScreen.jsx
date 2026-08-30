@@ -147,10 +147,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   h1: { fontFamily: SANS.bold, fontSize: 22, letterSpacing: -0.75, color: C.ink },
   clearBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 },
-  clearLabel: { fontFamily: SANS.medium, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: C.ink2 },
+  clearLabel: { fontFamily: SANS.medium, fontSize: 13, letterSpacing: 0.6, textTransform: 'uppercase', color: C.ink2 },
   body: { padding: 16, paddingBottom: 150 },
   introCard: { backgroundColor: C.panelSoft, borderRadius: 18, padding: 18, marginBottom: 14 },
-  introText: { fontFamily: SANS.regular, fontSize: 14, color: C.onPanel2, lineHeight: 22 },
+  introText: { fontFamily: SANS.regular, fontSize: 15, color: C.onPanel2, lineHeight: 23 },
   promptBtn: {
     flexDirection: 'row',
     alignItems: 'center',

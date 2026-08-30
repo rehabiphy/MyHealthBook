@@ -431,7 +431,7 @@ export default function MedsScreen() {
           <View style={styles.timesPreviewRow}>
             {SLOTS.map(s => (
               <View key={s.key}>
-                <Mono style={{ fontSize: 9.5 }}>{s.label.split(' ').pop()}</Mono>
+                <Mono>{s.label.split(' ').pop()}</Mono>
                 <Text style={styles.timesPreviewValue}>{prettyTime(times[s.key])}</Text>
               </View>
             ))}
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
   adhPct: { fontFamily: SANS.bold, fontSize: 26, letterSpacing: -1, color: C.ink },
   noteBanner: { marginTop: 14, backgroundColor: C.panelSoft, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16 },
-  noteText: { fontFamily: SANS.regular, fontSize: 13.5, color: C.onPanel2 },
+  noteText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.onPanel2 },
   slotHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 8 },
   doseRow: {
     flexDirection: 'row',
@@ -474,25 +474,25 @@ const styles = StyleSheet.create({
   nameInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.semibold, fontSize: 20, color: C.ink },
   doseInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.medium, fontSize: 16, color: C.ink },
   stockRow: { flexDirection: 'row', gap: 14, marginTop: 18 },
-  hintText: { fontFamily: SANS.regular, fontSize: 12.5, color: C.ink2, lineHeight: 19, marginTop: 8 },
+  hintText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, lineHeight: 21, marginTop: 8 },
   slotOptWrap: { marginBottom: 6 },
   slotOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15 },
   slotOptOff: { backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: C.hair },
   slotOptLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
-  slotOptTime: { fontFamily: MONO.regular, fontSize: 10, letterSpacing: 1, opacity: 0.85, color: '#FFFFFF' },
+  slotOptTime: { fontFamily: MONO.medium, fontSize: 13, letterSpacing: 0.6, opacity: 0.9, color: '#FFFFFF' },
   row2: { flexDirection: 'row', gap: 8, marginTop: 16 },
   inactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
   inactiveName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2, letterSpacing: -0.3 },
   restartBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
-  restartLabel: { fontFamily: SANS.semibold, fontSize: 13, color: C.ink },
+  restartLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   stockItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
   stockRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   stockName: { fontFamily: SANS.semibold, fontSize: 15, letterSpacing: -0.3, color: C.ink },
   stockStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   stockDot: { width: 7, height: 7, borderRadius: 99 },
-  stockLabel: { fontFamily: SANS.semibold, fontSize: 13 },
+  stockLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
   stockBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, flexShrink: 0 },
-  stockBtnLabel: { fontFamily: SANS.semibold, fontSize: 13, color: C.ink },
+  stockBtnLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   restockRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   restockInput: { flex: 1, borderWidth: 1, borderColor: C.hair, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 13, fontFamily: SANS.regular, fontSize: 15, color: C.ink, backgroundColor: C.card },
   restockSave: { backgroundColor: C.panel, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 16 },
@@ -501,8 +501,8 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.hair },
   timeSlotLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   timeBtn: { borderWidth: 1, borderColor: C.hair, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: 'rgba(255,255,255,0.10)' },
-  timeBtnLabel: { fontFamily: MONO.regular, fontSize: 13, color: C.ink },
+  timeBtnLabel: { fontFamily: MONO.medium, fontSize: 14.5, color: C.ink },
   timesPreviewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10 },
-  timesPreviewValue: { fontFamily: SANS.semibold, fontSize: 13.5, color: C.ink },
-  importantText: { fontFamily: SANS.regular, fontSize: 13, lineHeight: 21, color: C.ink2, marginTop: 10 },
+  timesPreviewValue: { fontFamily: SANS.semibold, fontSize: 15, color: C.ink },
+  importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

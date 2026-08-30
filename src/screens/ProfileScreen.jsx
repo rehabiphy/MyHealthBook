@@ -39,7 +39,7 @@ function Row({ label, children }) {
 function Stat({ k, v, sub, color, onPress }) {
   return (
     <Press onPress={onPress} style={styles.statTile}>
-      <Mono style={{ fontSize: 10 }}>{k}</Mono>
+      <Mono>{k}</Mono>
       <Text style={styles.statValue}>{v}</Text>
       {sub ? <Text style={[styles.statSub, { color: color || C.ink3 }]}>{sub}</Text> : null}
     </Press>
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
               ))}
             </View>
             <View style={styles.histRecentWrap}>
-              <Mono style={{ fontSize: 10, paddingVertical: 10 }}>Most recent</Mono>
+              <Mono style={{ paddingVertical: 10 }}>Most recent</Mono>
               {[...hist]
                 .sort((a, b) => b.date - a.date)
                 .slice(0, 4)
@@ -369,8 +369,8 @@ const styles = StyleSheet.create({
   row2: { flexDirection: 'row', gap: 8 },
   statTile: { flex: 1, minWidth: 0, backgroundColor: C.card, borderWidth: 1, borderColor: C.hair, borderRadius: 18, padding: 15 },
   statValue: { fontFamily: SANS.bold, fontSize: 24, letterSpacing: -0.9, marginTop: 7, color: C.ink },
-  statSub: { fontFamily: SANS.semibold, fontSize: 12.5, marginTop: 3 },
-  footNote: { fontFamily: SANS.regular, fontSize: 12.5, color: C.ink3, lineHeight: 19, paddingTop: 10, paddingHorizontal: 4 },
+  statSub: { fontFamily: SANS.semibold, fontSize: 14.5, marginTop: 3 },
+  footNote: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, lineHeight: 21, paddingTop: 10, paddingHorizontal: 4 },
   emptyTitle: { fontFamily: SANS.semibold, fontSize: 17, color: C.ink },
   emptySub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 6, lineHeight: 22 },
   histCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
@@ -378,22 +378,22 @@ const styles = StyleSheet.create({
   histCountLabel: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2 },
   histTypesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   histTypeTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
-  histTypeLabel: { fontFamily: SANS.semibold, fontSize: 12.5 },
+  histTypeLabel: { fontFamily: SANS.semibold, fontSize: 14 },
   histRecentWrap: { marginTop: 16, paddingTop: 6, borderTopWidth: 1, borderTopColor: C.hair },
   histRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 12 },
   condRowBorder: { borderBottomWidth: 1, borderBottomColor: C.hair },
   histDateCol: { flexShrink: 0, width: 42, alignItems: 'center' },
   histDay: { fontFamily: SANS.bold, fontSize: 19, letterSpacing: -0.5, color: C.ink },
-  histMonth: { fontFamily: SANS.regular, fontSize: 9, letterSpacing: 1, color: C.ink3, textTransform: 'uppercase' },
+  histMonth: { fontFamily: SANS.medium, fontSize: 12, letterSpacing: 0.8, color: C.ink3, textTransform: 'uppercase' },
   histTitle: { fontFamily: SANS.semibold, fontSize: 16, letterSpacing: -0.3, color: C.ink },
-  histType: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink3, marginTop: 2 },
+  histType: { fontFamily: SANS.regular, fontSize: 15, color: C.ink3, marginTop: 2 },
   histIcon: { flexShrink: 0, width: 30, height: 30, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
   fieldInput: { textAlign: 'right', fontFamily: SANS.semibold, fontSize: 16, color: C.ink, minWidth: 100 },
   readonlyValue: { fontFamily: SANS.semibold, fontSize: 16 },
   sexBlock: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
   dietBlock: { paddingTop: 16, paddingBottom: 18 },
-  hintText: { fontFamily: SANS.regular, fontSize: 12.5, color: C.ink3, lineHeight: 19, marginTop: 12 },
-  dataText: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2, marginTop: 10, marginBottom: 16, lineHeight: 21 },
-  importantText: { fontFamily: SANS.regular, fontSize: 13.5, lineHeight: 22, color: C.ink2, marginTop: 10 },
+  hintText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, lineHeight: 21, marginTop: 12 },
+  dataText: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 10, marginBottom: 16, lineHeight: 22 },
+  importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

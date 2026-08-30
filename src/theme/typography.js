@@ -32,12 +32,16 @@ export function monoWeight(weight) {
   return MONO.regular;
 }
 
-/* The small uppercase mono caption used everywhere for labels,
-   timestamps and units — the app's signature typographic voice. */
+/* The uppercase mono caption used everywhere for labels, timestamps
+   and units — the app's signature typographic voice. Sized and
+   weighted for legibility at a glance (elderly-friendly): medium
+   weight instead of regular, and noticeably larger than the original
+   10.5px, which read as too small/faint to read without effort. */
 export const monoCaption = {
-  fontFamily: MONO.regular,
-  fontSize: 10.5,
-  letterSpacing: 1.4,
+  fontFamily: MONO.medium,
+  fontSize: 13,
+  lineHeight: 17,
+  letterSpacing: 1,
   textTransform: 'uppercase',
 };
 

@@ -70,5 +70,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   tabBtn: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
   iconWrap: { width: 44, height: 34, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: MONO.regular, fontSize: 8.5, letterSpacing: 0.5, textTransform: 'uppercase' },
+  label: { fontFamily: MONO.medium, fontSize: 11.5, letterSpacing: 0.3, textTransform: 'uppercase' },
 });
