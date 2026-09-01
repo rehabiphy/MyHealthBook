@@ -140,7 +140,7 @@ export default function FamilySheet({ data, setData, onClose }) {
 
           <Card style={{ marginTop: 10 }}>
             <Mono>Send on</Mono>
-            <View style={{ flexDirection: 'row', gap: 3, backgroundColor: 'rgba(255,255,255,0.10)', padding: 4, borderRadius: 16, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 3, backgroundColor: 'rgba(22,36,28,0.06)', padding: 4, borderRadius: 16, marginTop: 10 }}>
               {DAY_OPTIONS.map(o => {
                 const on = String(care.day ?? 0) === o.value;
                 return (
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   relRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
   relPillWrap: {},
   relPill: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
-  relPillOff: { backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: C.hair },
+  relPillOff: { backgroundColor: 'rgba(22,36,28,0.06)', borderWidth: 1, borderColor: C.hair },
   relLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
   dayPill: { borderRadius: 11, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
   dayLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },

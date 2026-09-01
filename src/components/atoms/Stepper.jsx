@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: C.hair,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: 'rgba(22,36,28,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   numberWrapEditing: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(22,36,28,0.06)',
   },
   number: {
     fontFamily: SANS.bold,

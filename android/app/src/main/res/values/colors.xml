@@ -1,0 +1,8 @@
+<resources>
+    <!-- Matches C.paper in src/theme/colors.js. Used as the native
+         window background so it can never fall back to the system
+         theme's default (which is black under DayNight + system dark
+         mode) — that default was bleeding through BlurView's native
+         blur, most visibly at the bottom tab bar. -->
+    <color name="app_background">#F4F8F6</color>
+</resources>

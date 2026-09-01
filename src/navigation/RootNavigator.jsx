@@ -69,10 +69,11 @@ function RootShell({ navigationRef, activeKey }) {
       <AmbientBackground />
       {activeKey !== 'coach' && <TopHeader data={data} onPressBell={() => go('meds')} />}
       <View style={{ flex: 1 }}>
-        <Tab.Navigator
-          tabBar={props => <TabBar {...props} />}
-          screenOptions={{ headerShown: false }}
-          sceneStyle={{ backgroundColor: 'transparent' }}>
+        {/* The built-in tab bar is suppressed (tabBar={() => null}) and TabBar
+            is rendered separately below, absolutely positioned over the scene —
+            that overlap is what lets scrolled content actually pass underneath
+            the glass bar instead of stopping above a normal-flow sibling. */}
+        <Tab.Navigator tabBar={() => null} screenOptions={{ headerShown: false }} sceneStyle={{ backgroundColor: 'transparent' }}>
           <Tab.Screen name="home" component={HomeScreen} />
           <Tab.Screen name="log" component={LogScreen} />
           <Tab.Screen name="history" component={HistoryScreen} />
@@ -83,6 +84,7 @@ function RootShell({ navigationRef, activeKey }) {
           <Tab.Screen name="learn" component={LearnScreen} />
           <Tab.Screen name="family" component={ViewerScreen} />
         </Tab.Navigator>
+        <TabBar activeKey={activeKey} onNavigate={go} />
       </View>
       {!isViewer && activeKey !== 'meds' && <DoseBanner data={data} setData={setData} go={go} />}
     </View>

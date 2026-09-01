@@ -1,25 +1,27 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
 import { C } from '../../theme/colors';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /* The frosted-glass card that carries almost every reading in the app —
-   a tinted, hairline-bordered panel (reproduces `background:
-   rgba(255,255,255,.10); backdrop-filter: blur(22px)`) that fades/rises
-   in on mount and scales down 0.97 on press, like the original
-   `.rise`/`.press` classes.
+   real native blur behind a neutral, low-opacity white wash and a
+   subtle white glass-edge border, so whatever's behind it (mostly
+   AmbientBackground's near-white ground, occasionally one of its soft
+   green glows) actually reads through, blurred, rather than the card
+   just looking like a flat green-tinted box. Fades/rises in on mount
+   and scales down 0.97 on press, like the original `.rise`/`.press`
+   classes.
 
-   This is simulated translucency (a flat tinted View), not a live
-   native blur. Card renders many times per screen (Home alone has ~7),
-   and Android's blur library samples the *entire* activity's root
-   content view on every frame per instance — with that many
-   auto-updating BlurViews stacked, their outputs compound into a
-   visibly darker/muddier result than a single CSS backdrop-filter ever
-   would, and it's expensive to boot. Real blur stays on the few
-   singular, always-mounted surfaces (header, tab bar, dialog) where a
-   single instance can't compound with itself. */
-export default function Card({ children, style, onClick, onPress, delay = 0, overlayColor = 'rgba(255,255,255,0.14)' }) {
+   `autoUpdate={false}`: Card renders many times per screen (Home alone
+   has ~7), and a continuously re-blurring instance per card is real
+   GPU cost on Android. Each blurs a single snapshot on mount instead —
+   safe here because what's behind a card is either the fixed ambient
+   backdrop (doesn't move) or another card's own flat colour (no fine
+   detail to go stale). TabBar blurs live content scrolling past it, so
+   it keeps auto-update on; cards don't need to. */
+export default function Card({ children, style, onClick, onPress, delay = 0, overlayColor = C.card, blurAmount = 14 }) {
   const handler = onPress || onClick;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(10)).current;
@@ -36,27 +38,35 @@ export default function Card({ children, style, onClick, onPress, delay = 0, ove
   }, []);
 
   const animStyle = { opacity, transform: [{ translateY }, { scale }] };
-  const shellStyle = [styles.shell, { backgroundColor: overlayColor }, style, animStyle];
+  const shellStyle = [styles.shell, style, animStyle];
+
+  const inner = (
+    <>
+      <BlurView style={StyleSheet.absoluteFill} blurAmount={blurAmount} autoUpdate={false} overlayColor={overlayColor} reducedTransparencyFallbackColor={C.cardSolid} />
+      <View style={styles.content}>{children}</View>
+    </>
+  );
 
   if (handler) {
     const onPressIn = () => Animated.timing(scale, { toValue: 0.97, duration: 120, useNativeDriver: true }).start();
     const onPressOut = () => Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }).start();
     return (
       <AnimatedPressable onPress={handler} onPressIn={onPressIn} onPressOut={onPressOut} style={shellStyle}>
-        {children}
+        {inner}
       </AnimatedPressable>
     );
   }
 
-  return <Animated.View style={shellStyle}>{children}</Animated.View>;
+  return <Animated.View style={shellStyle}>{inner}</Animated.View>;
 }
 
 const styles = StyleSheet.create({
   shell: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: C.hair,
+    borderColor: 'rgba(255,255,255,0.8)',
     overflow: 'hidden',
     padding: 20,
   },
+  content: {},
 });

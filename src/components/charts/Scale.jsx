@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     width: 9,
     height: 24,
     borderRadius: 99,
-    backgroundColor: C.paper,
+    backgroundColor: C.cardSolid,
     padding: 3,
   },
   thumb: {

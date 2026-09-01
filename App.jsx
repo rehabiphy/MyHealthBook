@@ -20,7 +20,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <DataProvider>
         <AskDialogProvider>
           <RootNavigator />

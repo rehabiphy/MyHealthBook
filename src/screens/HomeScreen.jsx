@@ -217,7 +217,7 @@ export default function HomeScreen() {
         <Label>Your health</Label>
       </View>
       {weeklyDue(data) && (
-        <Card style={[styles.softCard, { marginBottom: 10 }]} onPress={() => go('me')}>
+        <Card style={{ marginBottom: 10 }} onPress={() => go('me')}>
           <Mono style={{ color: C.brand }}>Weekly update ready</Mono>
           <Text style={styles.weeklyTitle}>Send this week to {data.care.circle.filter(m => m.weekly).map(m => m.name).join(', ')}</Text>
         </Card>
@@ -237,7 +237,7 @@ export default function HomeScreen() {
         </Card>
       </View>
 
-      <Card style={[styles.softCard, { marginTop: 10 }]} onPress={() => go('coach')}>
+      <Card style={{ marginTop: 10 }} onPress={() => go('coach')}>
         <Mono style={{ color: C.brand }}>AI coach</Mono>
         <Text style={styles.weeklyTitle}>What to eat, how to move</Text>
         <Text style={styles.coachSub}>Meals and workouts built from your own numbers.</Text>
@@ -285,7 +285,8 @@ const styles = StyleSheet.create({
   trendFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   trendReading: { fontFamily: SANS.bold, fontSize: 15, letterSpacing: -0.3, color: C.ink },
   trendCat: { fontFamily: SANS.semibold, fontSize: 14 },
-  softCard: { backgroundColor: C.panelSoft, borderColor: C.hair },
+  // no colour override here on purpose — these read as the same neutral glass as every
+  // other card, with green carried only by the "Weekly update"/"AI coach" label text
   weeklyTitle: { fontFamily: SANS.semibold, fontSize: 16, letterSpacing: -0.4, marginTop: 7, color: C.ink },
   linkTitle: { fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, marginTop: 9, lineHeight: 21, color: C.ink },
   coachSub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 5, lineHeight: 21 },

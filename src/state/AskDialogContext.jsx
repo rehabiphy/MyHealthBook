@@ -84,7 +84,7 @@ function ConfirmButton({ danger, onPress, children }) {
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      style={[styles.actionBtn, styles.confirmBtn, { backgroundColor: danger ? C.stage2 : C.panel, transform: [{ scale }] }]}>
+      style={[styles.actionBtn, styles.confirmBtn, { backgroundColor: danger ? C.stage2 : C.brand, transform: [{ scale }] }]}>
       <Text style={styles.confirmLabel}>{children}</Text>
     </AnimatedPressable>
   );
@@ -99,7 +99,7 @@ export function useAsk() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(24,12,60,0.66)',
+    backgroundColor: 'rgba(10,20,15,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.hair,
     overflow: 'hidden',
-    backgroundColor: 'rgba(58,42,120,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.97)',
   },
   content: {
     padding: 22,
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     fontFamily: SANS.regular,
     fontSize: 16,
     color: C.ink,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(22,36,28,0.05)',
   },
   actions: {
     flexDirection: 'row',

@@ -1,9 +1,17 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- Base application theme. This app is a fixed light theme (see
+         src/theme/colors.js), not adaptive — Theme.AppCompat.DayNight
+         would silently switch to a dark variant (black window
+         background) when the device's system dark mode is on, which
+         was bleeding through BlurView's native blur at the screen
+         edges. Theme.AppCompat.Light + an explicit windowBackground
+         pins the native window to the app's own light background
+         regardless of the system setting. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowBackground">@color/app_background</item>
     </style>
 
 </resources>

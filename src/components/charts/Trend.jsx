@@ -53,8 +53,8 @@ export default function Trend({ rows, onPick, picked }) {
         <G key={r.id} onPress={() => onPick(i)}>
           <Rect x={X(i) - 12} y={0} width={24} height={h} fill="transparent" />
           {picked === i && <Line x1={X(i)} x2={X(i)} y1={padT - 6} y2={h - padB} stroke={C.ink3} strokeWidth={1} />}
-          <Circle cx={X(i)} cy={Y(r.sys)} r={picked === i ? 4.5 : 2.6} fill={C.stage1} stroke={C.paper} strokeWidth={picked === i ? 2 : 0} />
-          <Circle cx={X(i)} cy={Y(r.dia)} r={picked === i ? 4.5 : 2.6} fill={C.brand} stroke={C.paper} strokeWidth={picked === i ? 2 : 0} />
+          <Circle cx={X(i)} cy={Y(r.sys)} r={picked === i ? 4.5 : 2.6} fill={C.stage1} stroke={C.cardSolid} strokeWidth={picked === i ? 2 : 0} />
+          <Circle cx={X(i)} cy={Y(r.dia)} r={picked === i ? 4.5 : 2.6} fill={C.brand} stroke={C.cardSolid} strokeWidth={picked === i ? 2 : 0} />
           <SvgText x={X(i)} y={h - 6} textAnchor="middle" fontFamily={MONO.regular} fontSize="8" fill={picked === i ? C.ink : C.ink3}>
             {new Date(r.ts).getDate()}
           </SvgText>

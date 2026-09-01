@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     fontFamily: SANS.regular,
     fontSize: 15,
     color: C.ink,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(22,36,28,0.05)',
     minHeight: 90,
     textAlignVertical: 'top',
   },

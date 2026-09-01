@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   quiet: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(22,36,28,0.06)',
     borderWidth: 1,
     borderColor: C.hair,
   },

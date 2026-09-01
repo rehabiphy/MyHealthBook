@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from '@react-native-community/blur';
 import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
@@ -15,6 +16,7 @@ export default function TopHeader({ data, onPressBell }) {
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 13 }]}>
+      <BlurView style={StyleSheet.absoluteFill} blurAmount={18} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.paper} />
       <View style={styles.row}>
         <GradientText style={styles.appName}>{APP_NAME}</GradientText>
         <Press onPress={onPressBell} style={styles.bell} accessibilityLabel="reminders">
@@ -35,7 +37,7 @@ const styles = StyleSheet.create({
     paddingBottom: 13,
     borderBottomWidth: 1,
     borderBottomColor: C.hair,
-    backgroundColor: 'rgba(43,27,99,0.55)',
+    overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   appName: { fontFamily: SANS.bold, fontSize: 18, letterSpacing: -0.55 },
@@ -43,7 +45,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(22,36,28,0.06)',
     borderWidth: 1,
     borderColor: C.hair,
     alignItems: 'center',

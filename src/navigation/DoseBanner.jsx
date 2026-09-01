@@ -28,7 +28,7 @@ export default function DoseBanner({ data, setData, go }) {
   if (d) {
     return (
       <Rise style={styles.wrap}>
-        <LinearGradient colors={['rgba(167,139,250,0.96)', 'rgba(236,127,208,0.94)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shell}>
+        <LinearGradient colors={['#4ADE80', '#16A34A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shell}>
           <Press onPress={() => go('meds')} style={{ flex: 1, minWidth: 0 }}>
             <Mono style={styles.captionOnBanner}>
               {slotOf(d.slot).label} · {prettyTime(d.time)}
@@ -49,7 +49,7 @@ export default function DoseBanner({ data, setData, go }) {
 
   return (
     <Rise style={styles.wrap}>
-      <LinearGradient colors={['rgba(167,139,250,0.96)', 'rgba(236,127,208,0.94)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shell}>
+      <LinearGradient colors={['#4ADE80', '#16A34A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shell}>
         <Press onPress={() => go('meds')} style={{ flex: 1, minWidth: 0 }}>
           <Mono style={[styles.captionOnBanner, { color: refillColor(refill.days) }]}>
             Refill · {refillLabel(refill.days).toLowerCase()}
@@ -98,5 +98,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexShrink: 0,
   },
-  actionLabel: { fontFamily: SANS.semibold, fontSize: 14, color: '#5B21B6' },
+  actionLabel: { fontFamily: SANS.semibold, fontSize: 14, color: '#166534' },
 });

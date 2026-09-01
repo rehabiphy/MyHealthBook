@@ -19,7 +19,7 @@ export default function DoseCheckbox({ done, onPress, size = 30 }) {
           </Svg>
         </LinearGradient>
       ) : (
-        <View style={[circleStyle, { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1.5, borderColor: C.hair }]} />
+        <View style={[circleStyle, { position: 'absolute', backgroundColor: 'rgba(22,36,28,0.05)', borderWidth: 1.5, borderColor: C.hair }]} />
       )}
     </Press>
   );

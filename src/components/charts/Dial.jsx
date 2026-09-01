@@ -52,7 +52,7 @@ export default function Dial({ value, min = 80, max = 180, bands, size = 210, da
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Path d={arc(cx, cy, r, A0, A1)} stroke="rgba(255,255,255,0.10)" strokeWidth={10} fill="none" strokeLinecap="round" />
+      <Path d={arc(cx, cy, r, A0, A1)} stroke="rgba(22,36,28,0.08)" strokeWidth={10} fill="none" strokeLinecap="round" />
       {bands.map((b, i) => (
         <Path
           key={i}
@@ -68,13 +68,13 @@ export default function Dial({ value, min = 80, max = 180, bands, size = 210, da
         const a = toAngle(v, min, max);
         const [x0, y0] = pt(cx, cy, r - 11, a);
         const [x1, y1] = pt(cx, cy, r - (v % 20 === 0 ? 18 : 15), a);
-        return <Line key={i} x1={x0} y1={y0} x2={x1} y2={y1} stroke="rgba(255,255,255,0.18)" strokeWidth={1.2} />;
+        return <Line key={i} x1={x0} y1={y0} x2={x1} y2={y1} stroke="rgba(22,36,28,0.20)" strokeWidth={1.2} />;
       })}
       <AnimatedG rotation={angleAnim} origin={`${cx}, ${cy}`}>
         <Line x1={cx} y1={cy} x2={cx + r - 20} y2={cy} stroke={dark ? C.onPanel : C.ink} strokeWidth={2.4} strokeLinecap="round" />
       </AnimatedG>
       <Circle cx={cx} cy={cy} r={5} fill={dark ? C.onPanel : C.ink} />
-      <Circle cx={cx} cy={cy} r={11} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
+      <Circle cx={cx} cy={cy} r={11} fill="none" stroke="rgba(22,36,28,0.20)" strokeWidth={1} />
     </Svg>
   );
 }

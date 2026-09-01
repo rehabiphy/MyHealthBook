@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
     gap: 3,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(22,36,28,0.05)',
     padding: 4,
     borderRadius: 16,
   },
