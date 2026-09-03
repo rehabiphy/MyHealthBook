@@ -3,13 +3,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
-import { dayKey, prettyTime, refillColor, refillLabel, slotOf, useReminders } from '../lib/meds';
+import { prettyTime, refillColor, refillLabel, slotOf, useReminders } from '../lib/meds';
+import { useData } from '../state/DataContext';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
 import Rise from '../components/atoms/Rise';
 
 /* Follows you across tabs. A dose that's due outranks a refill warning. */
-export default function DoseBanner({ data, setData, go }) {
+export default function DoseBanner({ data, go }) {
+  const { toggleDoseTaken } = useData();
   const { doses, refills } = useReminders(data);
   const [hidden, setHidden] = useState([]);
   const d = doses[0];
@@ -17,12 +19,12 @@ export default function DoseBanner({ data, setData, go }) {
 
   if (!d && !refill) return null;
 
-  const take = () => {
-    const day = dayKey();
-    setData(prev => ({
-      ...prev,
-      taken: { ...(prev.taken || {}), [day]: { ...(prev.taken?.[day] || {}), [d.id]: Date.now() } },
-    }));
+  const take = async () => {
+    try {
+      await toggleDoseTaken(d.id);
+    } catch {
+      // silent — MedsScreen's own toggle surfaces errors; this is a quick-action shortcut
+    }
   };
 
   if (d) {

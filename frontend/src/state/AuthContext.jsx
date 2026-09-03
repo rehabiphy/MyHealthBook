@@ -1,19 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { loadSession, saveSession, clearSession, loadPendingRegistration } from '../lib/authStorage';
+import { loadSession, saveSession, clearSession, clearPendingRegistration } from '../lib/authStorage';
 
 const AuthContext = createContext(null);
 
 /* Modeled on DataContext: a mount-effect loads persisted state then
    flips `ready`, a persist-effect (gated on `ready`) saves on every
-   change. `pendingRegistration` is read once at boot only — it drives
-   which screen AuthStack opens on (Register, pre-filled, instead of
-   Login) if the app was killed mid-signup; the live "is this email
-   verified yet" polling/deep-link state is screen-scoped in
-   RegisterScreen itself, not owned here. */
+   change. Registration progress is intentionally NOT persisted across
+   app restarts (that used to lock RegisterScreen on a stale, already-
+   sent verification from a previous session, with no way to start
+   over) — clearPendingRegistration() wipes any such leftover from
+   before this was removed. */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [pendingRegistration, setPendingRegistration] = useState(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -23,7 +22,7 @@ export function AuthProvider({ children }) {
         setUser(session.user);
         setToken(session.token);
       }
-      setPendingRegistration(await loadPendingRegistration());
+      await clearPendingRegistration();
       setReady(true);
     })();
   }, []);
@@ -44,9 +43,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, token, ready, pendingRegistration, signIn, signOut }}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, token, ready, signIn, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -18,9 +18,8 @@ import {
   refillLabel,
   REFILL_ALERT_DAYS,
   unitsLeft,
-  dayKey,
 } from '../lib/meds';
-import { fmtDay, uid } from '../lib/calc';
+import { fmtDay } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
 import Head from '../components/atoms/Head';
@@ -34,7 +33,7 @@ import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
 
 export default function MedsScreen() {
-  const { data, setData } = useData();
+  const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings } = useData();
   const ask = useAsk();
   const [name, setName] = useState('');
   const [dose, setDose] = useState('');
@@ -42,6 +41,7 @@ export default function MedsScreen() {
   const [stock, setStock] = useState('');
   const [perDose, setPerDose] = useState('1');
   const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [restock, setRestock] = useState(null);
   const [restockQty, setRestockQty] = useState('');
   const [editTimes, setEditTimes] = useState(false);
@@ -57,36 +57,39 @@ export default function MedsScreen() {
     setTimeout(() => setNote(''), 2600);
   };
 
-  const setSettings = patch => setData(d => ({ ...d, medSettings: { ...settings, ...patch } }));
+  const setSettings = async patch => {
+    try {
+      await updateMedSettings(patch);
+    } catch (err) {
+      say(err.message);
+    }
+  };
 
   const toggleSlot = k => setPicked(p => (p.includes(k) ? p.filter(x => x !== k) : [...p, k]));
 
-  const addMed = () => {
-    if (!name.trim() || !picked.length) return;
-    setData(d => ({
-      ...d,
-      meds: [
-        ...d.meds,
-        {
-          id: uid(),
-          name: name.trim(),
-          dose: dose.trim(),
-          slots: picked,
-          added: Date.now(),
-          status: 'active',
-          perDose: Math.max(1, +perDose || 1),
-          stock: stock === '' ? null : +stock,
-          stockedAt: stock === '' ? null : Date.now(),
-        },
-      ],
-    }));
-    setName('');
-    setDose('');
-    setPicked([]);
-    setStock('');
-    setPerDose('1');
-    setAdding(false);
-    say('Medicine added');
+  const addMed = async () => {
+    if (!name.trim() || !picked.length || saving) return;
+    setSaving(true);
+    try {
+      await addMedicine({
+        name: name.trim(),
+        dose: dose.trim(),
+        slots: picked,
+        perDose: Math.max(1, +perDose || 1),
+        stock: stock === '' ? null : +stock,
+      });
+      setName('');
+      setDose('');
+      setPicked([]);
+      setStock('');
+      setPerDose('1');
+      setAdding(false);
+      say('Medicine added');
+    } catch (err) {
+      say(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const setStatus = async (id, status) => {
@@ -102,31 +105,41 @@ export default function MedsScreen() {
         danger: true,
       });
       if (why === null) return;
-      setData(d => ({ ...d, meds: d.meds.map(m => (m.id === id ? { ...m, status, stoppedAt: Date.now(), stopReason: why || '' } : m)) }));
-      say(`${med.name} stopped. It stays in your medicine record.`);
+      try {
+        await setMedStatus(id, status, why || '');
+        say(`${med.name} stopped. It stays in your medicine record.`);
+      } catch (err) {
+        say(err.message);
+      }
       return;
     }
-    setData(d => ({ ...d, meds: d.meds.map(m => (m.id === id ? { ...m, status } : m)) }));
-    say(status === 'paused' ? `${med.name} paused` : `${med.name} is active again`);
+    try {
+      await setMedStatus(id, status);
+      say(status === 'paused' ? `${med.name} paused` : `${med.name} is active again`);
+    } catch (err) {
+      say(err.message);
+    }
   };
 
-  const saveRestock = id => {
+  const saveRestock = async id => {
     const qty = +restockQty;
     if (!qty || qty <= 0) return;
-    setData(d => ({ ...d, meds: d.meds.map(m => (m.id === id ? { ...m, stock: qty, stockedAt: Date.now() } : m)) }));
-    setRestock(null);
-    setRestockQty('');
-    say('Stock updated');
+    try {
+      await restockMedicine(id, qty);
+      setRestock(null);
+      setRestockQty('');
+      say('Stock updated');
+    } catch (err) {
+      say(err.message);
+    }
   };
 
-  const toggleTaken = doseId => {
-    const day = dayKey();
-    setData(d => {
-      const dayMap = { ...(d.taken?.[day] || {}) };
-      if (dayMap[doseId]) delete dayMap[doseId];
-      else dayMap[doseId] = Date.now();
-      return { ...d, taken: { ...(d.taken || {}), [day]: dayMap } };
-    });
+  const toggleTaken = async doseId => {
+    try {
+      await toggleDoseTaken(doseId);
+    } catch (err) {
+      say(err.message);
+    }
   };
 
   const grouped = SLOTS.map(s => ({ slot: s, items: doses.filter(d => d.slot === s.key) })).filter(g => g.items.length);
@@ -271,8 +284,8 @@ export default function MedsScreen() {
             <Btn kind="quiet" style={{ flex: 1 }} onClick={() => { setAdding(false); setName(''); setDose(''); setPicked([]); }}>
               Cancel
             </Btn>
-            <Btn style={{ flex: 1 }} disabled={!name.trim() || !picked.length} onClick={addMed}>
-              Add medicine
+            <Btn style={{ flex: 1 }} disabled={!name.trim() || !picked.length || saving} onClick={addMed}>
+              {saving ? 'Adding…' : 'Add medicine'}
             </Btn>
           </View>
         </Card>

@@ -57,7 +57,7 @@ export default function RootNavigator() {
    `ready` loading pattern for useData(), just with a second ready
    flag (auth) added to it. */
 function AuthGate({ navigationRef, activeKey }) {
-  const { ready: authReady, user, pendingRegistration } = useAuth();
+  const { ready: authReady, user } = useAuth();
   const { ready: dataReady } = useData();
 
   if (!authReady || !dataReady) {
@@ -70,14 +70,14 @@ function AuthGate({ navigationRef, activeKey }) {
   }
 
   if (!user) {
-    return <AuthStack initialRouteName={pendingRegistration ? 'Register' : 'Login'} />;
+    return <AuthStack />;
   }
 
   return <RootShell navigationRef={navigationRef} activeKey={activeKey} />;
 }
 
 function RootShell({ navigationRef, activeKey }) {
-  const { data, setData } = useData();
+  const { data } = useData();
 
   const isViewer = data.care?.role === 'viewer';
   const go = key => navigationRef.navigate(key);
@@ -104,7 +104,7 @@ function RootShell({ navigationRef, activeKey }) {
         </Tab.Navigator>
         <TabBar activeKey={activeKey} onNavigate={go} />
       </View>
-      {!isViewer && activeKey !== 'meds' && <DoseBanner data={data} setData={setData} go={go} />}
+      {!isViewer && activeKey !== 'meds' && <DoseBanner data={data} go={go} />}
     </View>
   );
 }

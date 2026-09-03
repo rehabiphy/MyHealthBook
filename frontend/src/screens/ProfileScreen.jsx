@@ -8,6 +8,7 @@ import { bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, kg1 } from '../l
 import { activeMeds, adherence } from '../lib/meds';
 import { HISTORY_TYPES, normType, typeOf } from '../lib/history';
 import { useData } from '../state/DataContext';
+import { useAuth } from '../state/AuthContext';
 import { useAsk } from '../state/AskDialogContext';
 import { useGo } from '../navigation/useGo';
 import Head from '../components/atoms/Head';
@@ -47,13 +48,15 @@ function Stat({ k, v, sub, color, onPress }) {
 }
 
 export default function ProfileScreen() {
-  const { data, setData } = useData();
+  const { data, setData, saveProfile, setCareRole, deleteAllReadings } = useData();
+  const { signOut } = useAuth();
   const ask = useAsk();
   const go = useGo();
   const [report, setReport] = useState(false);
   const [family, setFamily] = useState(false);
   const [draft, setDraft] = useState(data.profile);
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
   const saved = useRef(data.profile);
 
   useEffect(() => {
@@ -65,11 +68,18 @@ export default function ProfileScreen() {
 
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(data.profile);
-  const save = () => {
-    saved.current = draft;
-    setData(d => ({ ...d, profile: draft }));
-    setNote('Profile saved');
-    setTimeout(() => setNote(''), 1800);
+  const save = async () => {
+    setSaving(true);
+    try {
+      saved.current = draft;
+      await saveProfile(draft);
+      setNote('Profile saved');
+      setTimeout(() => setNote(''), 1800);
+    } catch (err) {
+      setNote(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const p = data.profile;
@@ -248,8 +258,8 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
-        <Btn onClick={save} disabled={!dirty} style={{ paddingVertical: 17 }}>
-          {dirty ? 'Save profile' : note || 'Saved'}
+        <Btn onClick={save} disabled={!dirty || saving} style={{ paddingVertical: 17 }}>
+          {saving ? 'Saving…' : dirty ? 'Save profile' : note || 'Saved'}
         </Btn>
         <Text style={styles.hintText}>Weight comes from your latest reading. Blood group and conditions live in Health Summary.</Text>
       </Card>
@@ -301,7 +311,7 @@ export default function ProfileScreen() {
         <View style={{ marginTop: 10 }}>
           <Seg
             value={data.care?.role || 'logger'}
-            onChange={v => setData(d => ({ ...d, care: { ...(d.care || { circle: [], received: [], day: 0 }), role: v } }))}
+            onChange={v => setCareRole(v).catch(err => setNote(err.message))}
             options={[
               { value: 'logger', label: 'Logging' },
               { value: 'viewer', label: 'Receiving' },
@@ -336,7 +346,13 @@ export default function ProfileScreen() {
               cancelLabel: 'Cancel',
               danger: true,
             });
-            if (ok) setData(d => ({ ...d, bp: [], body: [], sugar: [], chat: [] }));
+            if (ok) {
+              try {
+                await deleteAllReadings();
+              } catch (err) {
+                setNote(err.message);
+              }
+            }
           }}>
           Delete all readings
         </Btn>
@@ -346,6 +362,23 @@ export default function ProfileScreen() {
         <Mono>Important</Mono>
         <Text style={styles.importantText}>This app records what you measure and explains the standard reference ranges. It does not diagnose, prescribe, or change medicines. Take your readings to your doctor — that is what they are for.</Text>
       </Card>
+
+      <Btn
+        kind="quiet"
+        style={{ marginTop: 10, paddingVertical: 17 }}
+        textStyle={{ color: C.stage2 }}
+        onClick={async () => {
+          const ok = await ask({
+            title: 'Log out?',
+            body: 'You can log back in anytime with your email and password.',
+            confirmLabel: 'Log out',
+            cancelLabel: 'Cancel',
+            danger: true,
+          });
+          if (ok) signOut();
+        }}>
+        Log out
+      </Btn>
 
       {report && <ReportSheet data={data} onClose={() => setReport(false)} />}
       {family && <FamilySheet data={data} setData={setData} onClose={() => setFamily(false)} />}

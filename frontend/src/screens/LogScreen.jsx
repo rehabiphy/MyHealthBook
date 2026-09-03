@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
-import { BANDS, BMI_BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime, kg1, uid } from '../lib/calc';
+import { BANDS, BMI_BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime, kg1 } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
@@ -23,7 +23,7 @@ const TABS = [
 ];
 
 export default function LogScreen() {
-  const { data, setData } = useData();
+  const { data, addBpReading, addBodyReading, addSugarReading, deleteReading } = useData();
   const [tab, setTab] = useState('bp');
   const [sys, setSys] = useState(120);
   const [dia, setDia] = useState(80);
@@ -33,6 +33,7 @@ export default function LogScreen() {
   const [mgdl, setMgdl] = useState(95);
   const [kind, setKind] = useState('fasting');
   const [toast, setToast] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const flash = m => {
     setToast(m);
@@ -51,7 +52,13 @@ export default function LogScreen() {
         })
       : data.sugar.map(r => ({ ...r, main: `${r.mgdl}`, unit: 'mg/dl', sub: r.kind === 'fasting' ? 'fasting' : 'after meal', cat: classifySugar(r.mgdl, r.kind) }));
 
-  const remove = id => setData(d => ({ ...d, bp: d.bp.filter(r => r.id !== id), body: d.body.filter(r => r.id !== id), sugar: d.sugar.filter(r => r.id !== id) }));
+  const remove = async id => {
+    try {
+      await deleteReading(tab, id);
+    } catch (err) {
+      flash(err.message);
+    }
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -73,11 +80,19 @@ export default function LogScreen() {
                 <Scale bands={BANDS} value={sys} min={80} max={180} label="systolic" />
                 <Btn
                   style={{ marginTop: 16 }}
-                  onClick={() => {
-                    setData(d => ({ ...d, bp: [{ id: uid(), ts: Date.now(), sys, dia, pulse }, ...d.bp] }));
-                    flash('Reading saved');
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await addBpReading({ sys, dia, pulse });
+                      flash('Reading saved');
+                    } catch (err) {
+                      flash(err.message);
+                    } finally {
+                      setSaving(false);
+                    }
                   }}>
-                  Save reading
+                  {saving ? 'Saving…' : 'Save reading'}
                 </Btn>
               </View>
             </>
@@ -96,11 +111,19 @@ export default function LogScreen() {
                 <Text style={styles.hint}>Set to Asia-Pacific cut-offs: the healthy band ends at 23, not 25.</Text>
                 <Btn
                   style={{ marginTop: 16 }}
-                  onClick={() => {
-                    setData(d => ({ ...d, profile: { ...d.profile, heightCm: cm }, body: [{ id: uid(), ts: Date.now(), weightKg: kg }, ...d.body] }));
-                    flash('Weight saved');
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await addBodyReading({ weightKg: kg, heightCm: cm });
+                      flash('Weight saved');
+                    } catch (err) {
+                      flash(err.message);
+                    } finally {
+                      setSaving(false);
+                    }
                   }}>
-                  Save weight
+                  {saving ? 'Saving…' : 'Save weight'}
                 </Btn>
               </View>
             </>
@@ -126,11 +149,19 @@ export default function LogScreen() {
                 </View>
                 <Btn
                   style={{ marginTop: 16 }}
-                  onClick={() => {
-                    setData(d => ({ ...d, sugar: [{ id: uid(), ts: Date.now(), mgdl, kind }, ...d.sugar] }));
-                    flash('Reading saved');
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await addSugarReading({ mgdl, kind });
+                      flash('Reading saved');
+                    } catch (err) {
+                      flash(err.message);
+                    } finally {
+                      setSaving(false);
+                    }
                   }}>
-                  Save reading
+                  {saving ? 'Saving…' : 'Save reading'}
                 </Btn>
               </View>
             </>

@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
 import { useAuth } from '../state/AuthContext';
-import { useDeepLinkVerification } from '../hooks/useDeepLinkVerification';
 import * as authApi from '../lib/authApi';
-import { savePendingRegistration, clearPendingRegistration } from '../lib/authStorage';
 import AmbientBackground from '../components/AmbientBackground';
 import Card from '../components/atoms/Card';
 import Btn from '../components/atoms/Btn';
@@ -24,37 +22,14 @@ export default function RegisterScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
 
-  // 'idle' | 'pending' | 'verified'
+  // 'idle' | 'sent' | 'verified'
   const [verificationState, setVerificationState] = useState('idle');
-  const [sendingVerification, setSendingVerification] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // Cold-start resume: the app may have been killed while the user was
-  // off in their mail app. AuthContext already loaded any pending
-  // registration once at boot — pre-fill from it and reconcile status
-  // immediately rather than waiting for the first 3s poll tick.
-  useEffect(() => {
-    const pending = auth.pendingRegistration;
-    if (!pending) return;
-    setName(pending.name || '');
-    setEmail(pending.email || '');
-    setPhone(pending.phone || '');
-    setVerificationState('pending');
-    (async () => {
-      try {
-        const res = await authApi.checkVerificationStatus({ email: pending.email });
-        if (res.verified) setVerificationState('verified');
-      } catch {
-        // the 3s poll below will pick this up once it starts
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const onVerified = useCallback(() => setVerificationState('verified'), []);
-  useDeepLinkVerification({ email: email.trim(), active: verificationState === 'pending', onVerified });
 
   const nameValid = name.trim().length > 1;
   const emailValid = EMAIL_RE.test(email.trim());
@@ -62,23 +37,37 @@ export default function RegisterScreen({ navigation }) {
   const passwordValid = password.length >= 6;
   const passwordsMatch = confirmPassword.length === 0 || confirmPassword === password;
 
-  const canSendVerification = nameValid && emailValid && verificationState === 'idle' && !sendingVerification;
+  const canSendCode = nameValid && emailValid && verificationState === 'idle' && !sendingCode;
+  const canVerifyCode = otp.trim().length === 6 && !verifyingCode;
 
   const canSubmit =
     nameValid && emailValid && phoneValid && passwordValid && confirmPassword === password && verificationState === 'verified' && !submitting;
 
-  const handleSendVerification = async () => {
-    if (!canSendVerification) return;
+  const handleSendCode = async () => {
+    if (!canSendCode) return;
     setFormError('');
-    setSendingVerification(true);
+    setSendingCode(true);
     try {
       await authApi.sendVerificationEmail({ name: name.trim(), email: email.trim() });
-      await savePendingRegistration({ name: name.trim(), email: email.trim(), phone: phone.trim() });
-      setVerificationState('pending');
+      setVerificationState('sent');
     } catch (err) {
       setFormError(err.message);
     } finally {
-      setSendingVerification(false);
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!canVerifyCode) return;
+    setFormError('');
+    setVerifyingCode(true);
+    try {
+      await authApi.verifyEmail({ email: email.trim(), otp: otp.trim() });
+      setVerificationState('verified');
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -88,7 +77,6 @@ export default function RegisterScreen({ navigation }) {
     setSubmitting(true);
     try {
       const res = await authApi.register({ name: name.trim(), email: email.trim(), phone: phone.trim(), password });
-      await clearPendingRegistration();
       auth.signIn(res.token, res.user);
     } catch (err) {
       setFormError(err.message);
@@ -121,26 +109,36 @@ export default function RegisterScreen({ navigation }) {
             editable={verificationState === 'idle'}
           />
           {verificationState === 'idle' && (
-            <Press style={styles.verifyBtnWrap} onPress={handleSendVerification} disabled={!canSendVerification}>
-              <Text style={[styles.verifyBtnText, !canSendVerification && styles.verifyBtnTextDisabled]}>
-                {sendingVerification ? 'Sending…' : 'Verify Email'}
-              </Text>
+            <Press style={styles.verifyBtnWrap} onPress={handleSendCode} disabled={!canSendCode}>
+              <Text style={[styles.verifyBtnText, !canSendCode && styles.verifyBtnTextDisabled]}>{sendingCode ? 'Sending…' : 'Send Code'}</Text>
             </Press>
           )}
 
-          {verificationState !== 'idle' && (
+          {verificationState === 'sent' && (
             <Card overlayColor="rgba(34,197,94,0.12)" blurAmount={8} style={styles.statusCard}>
-              {verificationState === 'pending' ? (
-                <View style={styles.statusRow}>
-                  <ActivityIndicator color={C.brand} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.statusTitle}>Check your email</Text>
-                    <Text style={styles.statusBody}>Tap the verification button in the email on this device — this screen updates automatically.</Text>
-                  </View>
-                </View>
-              ) : (
-                <Text style={styles.statusVerified}>✓ Email has been successfully verified!</Text>
-              )}
+              <Text style={styles.statusTitle}>Check your email</Text>
+              <Text style={styles.statusBody}>Enter the 6-digit code we sent to {email.trim()}.</Text>
+              <View style={styles.otpRow}>
+                <Input
+                  value={otp}
+                  onChangeText={t => setOtp(t.replace(/\D/g, '').slice(0, 6))}
+                  keyboardType="number-pad"
+                  placeholder="123456"
+                  style={{ flex: 1 }}
+                />
+                <Press style={styles.otpVerifyBtn} onPress={handleVerifyCode} disabled={!canVerifyCode}>
+                  <Text style={styles.otpVerifyLabel}>{verifyingCode ? 'Checking…' : 'Verify'}</Text>
+                </Press>
+              </View>
+              <Press onPress={handleSendCode} disabled={sendingCode}>
+                <Text style={styles.resendText}>{sendingCode ? 'Sending…' : 'Resend code'}</Text>
+              </Press>
+            </Card>
+          )}
+
+          {verificationState === 'verified' && (
+            <Card overlayColor="rgba(34,197,94,0.12)" blurAmount={8} style={styles.statusCard}>
+              <Text style={styles.statusVerified}>✓ Email has been successfully verified!</Text>
             </Card>
           )}
 
@@ -182,10 +180,13 @@ const styles = StyleSheet.create({
   verifyBtnText: { fontFamily: SANS.semibold, fontSize: 14, color: C.brand },
   verifyBtnTextDisabled: { color: C.ink3 },
   statusCard: { padding: 14, marginBottom: 16, marginTop: -2 },
-  statusRow: { flexDirection: 'row', alignItems: 'center' },
   statusTitle: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   statusBody: { fontFamily: SANS.regular, fontSize: 13, color: C.ink2, marginTop: 3, lineHeight: 18 },
   statusVerified: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.brand2 },
+  otpRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  otpVerifyBtn: { backgroundColor: C.brand, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 16 },
+  otpVerifyLabel: { fontFamily: SANS.semibold, fontSize: 14, color: '#FFFFFF' },
+  resendText: { fontFamily: SANS.medium, fontSize: 13, color: C.brand, marginTop: 10 },
   errorText: { fontFamily: SANS.regular, fontSize: 13.5, color: C.stage2, marginBottom: 14 },
   bottomLinkWrap: { alignItems: 'center', marginTop: 24, marginBottom: 20 },
   bottomLinkText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2 },

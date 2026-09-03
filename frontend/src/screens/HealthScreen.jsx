@@ -21,15 +21,34 @@ function Big({ children, style }) {
 }
 
 export default function HealthScreen() {
-  const { data, setData } = useData();
+  const { data, setData, saveHealth } = useData();
   const go = useGo();
   const [edit, setEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [cond, setCond] = useState('');
   const h = data.health || { conditions: [], allergies: '', bloodGroup: '', upcoming: [] };
   const setH = patch => setData(d => ({ ...d, health: { ...h, ...patch } }));
   const recent = [...(data.history || [])].sort((a, b) => b.date - a.date).slice(0, 3);
   const refills = refillsDue(data);
   const active = activeMeds(data);
+
+  const toggleEdit = async () => {
+    if (!edit) {
+      setEdit(true);
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await saveHealth(h);
+      setEdit(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const addCondition = () => {
     if (!cond.trim()) return;
@@ -100,8 +119,10 @@ export default function HealthScreen() {
         </Card>
       </View>
 
-      <Btn kind={edit ? 'solid' : 'quiet'} style={{ marginTop: 10, paddingVertical: 17 }} onClick={() => setEdit(!edit)}>
-        {edit ? 'Done editing' : 'Edit health information'}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <Btn kind={edit ? 'solid' : 'quiet'} style={{ marginTop: 10, paddingVertical: 17 }} disabled={saving} onClick={toggleEdit}>
+        {saving ? 'Saving…' : edit ? 'Done editing' : 'Edit health information'}
       </Btn>
 
       <Card style={{ marginTop: 10, padding: 20 }} onPress={() => go('meds')}>
@@ -174,6 +195,7 @@ export default function HealthScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
+  errorText: { fontFamily: SANS.regular, fontSize: 13.5, color: C.stage2, marginTop: 10, paddingHorizontal: 4 },
   big: { fontFamily: SANS.semibold, fontSize: 19, letterSpacing: -0.4, lineHeight: 26, color: C.ink },
   condRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   condRowBorder: { borderBottomWidth: 1, borderBottomColor: C.hair },

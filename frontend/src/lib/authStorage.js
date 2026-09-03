@@ -28,26 +28,11 @@ export async function clearSession() {
   }
 }
 
-/* { name, email, phone } only — never the password. Lets the app
-   resume a half-finished registration if it gets killed while the
-   user is off in their mail app tapping the verify link. */
-export async function loadPendingRegistration() {
-  try {
-    const raw = await AsyncStorage.getItem(PENDING_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function savePendingRegistration(pending) {
-  try {
-    await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-  } catch {
-    // best-effort
-  }
-}
-
+/* Registration progress is not persisted across app restarts (it used
+   to be, via save/loadPendingRegistration — removed because it locked
+   the Register form on a stale, already-sent verification with no way
+   to start over). This just wipes any such leftover from before that
+   was removed. */
 export async function clearPendingRegistration() {
   try {
     await AsyncStorage.removeItem(PENDING_KEY);

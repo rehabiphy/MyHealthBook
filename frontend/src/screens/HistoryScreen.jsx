@@ -6,7 +6,6 @@ import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
-import { uid } from '../lib/calc';
 import { FILTERS, HISTORY_TYPES, monthLabel, normType, typeOf } from '../lib/history';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
@@ -31,7 +30,7 @@ function CloseBtn({ onPress }) {
 }
 
 export default function HistoryScreen() {
-  const { data, setData } = useData();
+  const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine } = useData();
   const ask = useAsk();
   const [view, setView] = useState('list'); // list | pick | form | detail
   const [type, setType] = useState('test');
@@ -41,6 +40,7 @@ export default function HistoryScreen() {
   const [draft, setDraft] = useState(null);
   const [toast, setToast] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const items = data.history || [];
   const say = m => {
@@ -77,7 +77,6 @@ export default function HistoryScreen() {
   });
 
   const blank = t => ({
-    id: uid(),
     type: t,
     date: Date.now(),
     title: '',
@@ -88,20 +87,25 @@ export default function HistoryScreen() {
     medDose: '',
     notes: '',
     file: '',
-    createdAt: Date.now(),
   });
 
-  const save = () => {
-    if (!draft.title.trim()) return;
-    const exists = items.some(r => r.id === draft.id);
-    setData(d => ({ ...d, history: exists ? d.history.map(r => (r.id === draft.id ? draft : r)) : [...(d.history || []), draft] }));
-    if (draft.medName.trim()) {
-      setOpenId(draft.id);
-      setView('detail');
-      say('Saved. Medicine recorded as historical information.');
-    } else {
-      setView('list');
-      say('Saved to medical history');
+  const save = async () => {
+    if (!draft.title.trim() || saving) return;
+    setSaving(true);
+    try {
+      const record = await addOrUpdateHistory(draft);
+      if (draft.medName.trim()) {
+        setOpenId(record.id);
+        setView('detail');
+        say('Saved. Medicine recorded as historical information.');
+      } else {
+        setView('list');
+        say('Saved to medical history');
+      }
+    } catch (err) {
+      say(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,9 +119,13 @@ export default function HistoryScreen() {
       cancelLabel: 'Keep it',
     });
     if (!ok) return;
-    setData(d => ({ ...d, history: d.history.filter(r => r.id !== id) }));
-    setView('list');
-    say('Record deleted');
+    try {
+      await deleteHistory(id);
+      setView('list');
+      say('Record deleted');
+    } catch (err) {
+      say(err.message);
+    }
   };
 
   const promote = async rec => {
@@ -128,12 +136,12 @@ export default function HistoryScreen() {
       cancelLabel: 'No, keep as history',
     });
     if (!ok) return;
-    setData(d => ({
-      ...d,
-      meds: [...d.meds, { id: uid(), name: rec.medName, dose: rec.medDose, slots: ['breakfast'], added: Date.now(), perDose: 1, stock: null, stockedAt: null, status: 'active', fromHistory: rec.id }],
-      history: d.history.map(r => (r.id === rec.id ? { ...r, promoted: true } : r)),
-    }));
-    say('Added to current medications. Set its timing on the Meds screen.');
+    try {
+      await promoteHistoryToMedicine(rec);
+      say('Added to current medications. Set its timing on the Meds screen.');
+    } catch (err) {
+      say(err.message);
+    }
   };
 
   const pickFile = async () => {
@@ -234,8 +242,8 @@ export default function HistoryScreen() {
             </Press>
             {draft.file ? <Text style={styles.fileHint}>The file name is saved on this phone. The file itself stays where it was picked from.</Text> : null}
           </View>
-          <Btn style={{ marginTop: 22, paddingVertical: 18 }} disabled={!draft.title.trim()} onClick={save}>
-            Save to medical history
+          <Btn style={{ marginTop: 22, paddingVertical: 18 }} disabled={!draft.title.trim() || saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save to medical history'}
           </Btn>
         </Card>
       </ScrollView>

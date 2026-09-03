@@ -8,6 +8,7 @@ import { GRAD } from '../theme/gradients';
 import { SANS } from '../theme/typography';
 import { sendToCoach } from '../lib/coach';
 import { useData } from '../state/DataContext';
+import { useAuth } from '../state/AuthContext';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
 
@@ -47,6 +48,7 @@ function TypingDots() {
 
 export default function CoachScreen() {
   const { data, setData } = useData();
+  const { token } = useAuth();
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
@@ -65,9 +67,14 @@ export default function CoachScreen() {
     setData(d => ({ ...d, chat: next }));
     setInput('');
     setBusy(true);
-    const reply = await sendToCoach(next, data);
-    setData(d => ({ ...d, chat: [...next, { role: 'assistant', content: reply }] }));
-    setBusy(false);
+    try {
+      const reply = await sendToCoach(next, token);
+      setData(d => ({ ...d, chat: [...next, { role: 'assistant', content: reply }] }));
+    } catch (err) {
+      setData(d => ({ ...d, chat: [...next, { role: 'assistant', content: err.message }] }));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

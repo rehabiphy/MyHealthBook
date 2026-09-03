@@ -5,10 +5,16 @@ import mongoose from 'mongoose';
    Mongo sweeps expired entries automatically (unlike an in-memory
    store, this survives a server restart). The sweep only runs every
    ~60s though, so callers must still check `expiresAt` themselves
-   rather than trusting mere document existence. */
+   rather than trusting mere document existence.
+
+   A typed 6-digit code, not a link token — the app isn't published
+   yet, so a deep link only resolves reliably with the app already
+   installed via a real build; a code the user reads from their email
+   and types in has no such dependency. */
 const emailVerificationSchema = new mongoose.Schema({
   email: { type: String, required: true, trim: true, lowercase: true, unique: true },
-  token: { type: String, required: true },
+  otp: { type: String, required: true },
+  attempts: { type: Number, default: 0 },
   verified: { type: Boolean, default: false },
   expiresAt: { type: Date, required: true },
 });
