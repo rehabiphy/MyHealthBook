@@ -111,14 +111,10 @@ export async function register(req, res) {
 
   const normalizedEmail = normalizeEmail(email);
 
-  // Email-OTP verification gate disabled for now (see authRoutes.js) —
-  // the deployed host doesn't reliably support outbound SMTP. Restore
-  // this block, plus the EmailVerification.deleteOne() cleanup below,
-  // once /send-verification + /verify-email are re-enabled.
-  // const verification = await EmailVerification.findOne({ email: normalizedEmail });
-  // if (!verification || !verification.verified || verification.expiresAt.getTime() < Date.now()) {
-  //   return res.status(400).json({ success: false, message: 'Please verify your email first' });
-  // }
+  const verification = await EmailVerification.findOne({ email: normalizedEmail });
+  if (!verification || !verification.verified || verification.expiresAt.getTime() < Date.now()) {
+    return res.status(400).json({ success: false, message: 'Please verify your email first' });
+  }
 
   const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
@@ -131,9 +127,10 @@ export async function register(req, res) {
     email: normalizedEmail,
     phone: phone.trim(),
     passwordHash,
+    isEmailVerified: true,
   });
 
-  // await EmailVerification.deleteOne({ _id: verification._id });
+  await EmailVerification.deleteOne({ _id: verification._id });
 
   const token = signToken(user);
   return res.status(201).json({ success: true, token, user: publicUser(user) });

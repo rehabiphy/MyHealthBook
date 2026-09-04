@@ -52,11 +52,7 @@ export default function LoginScreen({ navigation }) {
           <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" />
           <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
 
-          {/* Forgot Password screen + backend OTP flow are built and working,
-              just disabled for now (see authRoutes.js) — re-add
-              onPress={() => navigation.navigate('ForgotPassword')} once
-              the deployed backend's email sending is re-enabled. */}
-          <Press style={styles.forgotWrap}>
+          <Press style={styles.forgotWrap} onPress={() => navigation.navigate('ForgotPassword')}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </Press>
 
