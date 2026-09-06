@@ -9,6 +9,7 @@ import { GRAD } from '../theme/gradients';
 import { FILTERS, HISTORY_TYPES, monthLabel, normType, typeOf } from '../lib/history';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
@@ -32,6 +33,7 @@ function CloseBtn({ onPress }) {
 export default function HistoryScreen() {
   const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine } = useData();
   const ask = useAsk();
+  const bottomPad = useTabBarClearance();
   const [view, setView] = useState('list'); // list | pick | form | detail
   const [type, setType] = useState('test');
   const [openId, setOpenId] = useState(null);
@@ -171,7 +173,7 @@ export default function HistoryScreen() {
   /* ── pick a record type ── */
   if (view === 'pick') {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <Head title="Add a record" caption="what would you like to add?" right={<CloseBtn onPress={() => setView('list')} />} />
         {HISTORY_TYPES.map(t => (
           <Press
@@ -200,7 +202,7 @@ export default function HistoryScreen() {
     const t = typeOf(draft.type);
     const k = normType(draft.type);
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <Head title={t.label} caption="fill in what you know · you can edit later" right={<CloseBtn onPress={() => setView('list')} />} />
         <Card style={{ padding: 20 }}>
           <Mono>Date</Mono>
@@ -266,7 +268,7 @@ export default function HistoryScreen() {
         </View>
       ) : null;
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <Head
           title="Record"
           caption={new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -322,7 +324,7 @@ export default function HistoryScreen() {
 
   /* ── the timeline ── */
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <Head title="Medical History" caption="your medical journey, organised by date" icon={G.records(C.elevated)} tint={C.elevated} />
       {toast ? (
         <View style={styles.toastBanner}>

@@ -85,7 +85,7 @@ function RootShell({ navigationRef, activeKey }) {
   return (
     <View style={styles.root}>
       <AmbientBackground />
-      {activeKey !== 'coach' && <TopHeader data={data} onPressBell={() => go('meds')} />}
+      {activeKey !== 'coach' && <TopHeader data={data} onPressBell={() => go('meds')} onPressLearn={() => go('learn')} />}
       <View style={{ flex: 1 }}>
         {/* The built-in tab bar is suppressed (tabBar={() => null}) and TabBar
             is rendered separately below, absolutely positioned over the scene —

@@ -5,6 +5,7 @@ import { SANS, MONO } from '../theme/typography';
 import { fmtDay, uid } from '../lib/calc';
 import { openLink, toWhatsAppUrl } from '../lib/share';
 import { useData } from '../state/DataContext';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
@@ -13,6 +14,7 @@ import { G } from '../components/icons/ScreenGlyphs';
 
 export default function ViewerScreen() {
   const { data, setData } = useData();
+  const bottomPad = useTabBarClearance();
   const care = data.care || { role: 'viewer', circle: [], received: [] };
   const [paste, setPaste] = useState('');
   const received = care.received || [];
@@ -30,7 +32,7 @@ export default function ViewerScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <Head title="Updates" icon={G.records(C.brand)} tint={C.brand} caption={received.length ? `Last received ${fmtDay(received[0].ts).toLowerCase()}` : 'Nothing received yet'} />
 
       {received[0] && (

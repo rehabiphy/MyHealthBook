@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
 import { useAuth } from '../state/AuthContext';
 import * as authApi from '../lib/authApi';
+import { signInWithGoogle, isSignInCancelled } from '../lib/googleAuth';
+import { useDeepLinkVerification } from '../hooks/useDeepLinkVerification';
 import AmbientBackground from '../components/AmbientBackground';
 import Card from '../components/atoms/Card';
 import Btn from '../components/atoms/Btn';
+import GoogleButton from '../components/atoms/GoogleButton';
 import Input from '../components/atoms/Input';
 import GradientText from '../components/atoms/GradientText';
 import Press from '../components/atoms/Press';
@@ -22,14 +25,16 @@ export default function RegisterScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [otp, setOtp] = useState('');
 
   // 'idle' | 'sent' | 'verified'
   const [verificationState, setVerificationState] = useState('idle');
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [formError, setFormError] = useState('');
+
+  const onVerified = useCallback(() => setVerificationState('verified'), []);
+  useDeepLinkVerification({ email: email.trim(), active: verificationState === 'sent', onVerified });
 
   const nameValid = name.trim().length > 1;
   const emailValid = EMAIL_RE.test(email.trim());
@@ -37,37 +42,22 @@ export default function RegisterScreen({ navigation }) {
   const passwordValid = password.length >= 6;
   const passwordsMatch = confirmPassword.length === 0 || confirmPassword === password;
 
-  const canSendCode = nameValid && emailValid && verificationState === 'idle' && !sendingCode;
-  const canVerifyCode = otp.trim().length === 6 && !verifyingCode;
+  const canSendVerification = nameValid && emailValid && verificationState === 'idle' && !sendingEmail;
 
   const canSubmit =
     nameValid && emailValid && phoneValid && passwordValid && confirmPassword === password && verificationState === 'verified' && !submitting;
 
-  const handleSendCode = async () => {
-    if (!canSendCode) return;
+  const handleSendVerification = async () => {
+    if (!canSendVerification) return;
     setFormError('');
-    setSendingCode(true);
+    setSendingEmail(true);
     try {
       await authApi.sendVerificationEmail({ name: name.trim(), email: email.trim() });
       setVerificationState('sent');
     } catch (err) {
       setFormError(err.message);
     } finally {
-      setSendingCode(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    if (!canVerifyCode) return;
-    setFormError('');
-    setVerifyingCode(true);
-    try {
-      await authApi.verifyEmail({ email: email.trim(), otp: otp.trim() });
-      setVerificationState('verified');
-    } catch (err) {
-      setFormError(err.message);
-    } finally {
-      setVerifyingCode(false);
+      setSendingEmail(false);
     }
   };
 
@@ -82,6 +72,20 @@ export default function RegisterScreen({ navigation }) {
       setFormError(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setFormError('');
+    setGoogleLoading(true);
+    try {
+      const idToken = await signInWithGoogle();
+      const res = await authApi.googleSignIn({ idToken });
+      auth.signIn(res.token, res.user);
+    } catch (err) {
+      if (!isSignInCancelled(err)) setFormError(err.message);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -109,29 +113,26 @@ export default function RegisterScreen({ navigation }) {
             editable={verificationState === 'idle'}
           />
           {verificationState === 'idle' && (
-            <Press style={styles.verifyBtnWrap} onPress={handleSendCode} disabled={!canSendCode}>
-              <Text style={[styles.verifyBtnText, !canSendCode && styles.verifyBtnTextDisabled]}>{sendingCode ? 'Sending…' : 'Send Code'}</Text>
+            <Press style={styles.verifyBtnWrap} onPress={handleSendVerification} disabled={!canSendVerification}>
+              <Text style={[styles.verifyBtnText, !canSendVerification && styles.verifyBtnTextDisabled]}>
+                {sendingEmail ? 'Sending…' : 'Verify Email'}
+              </Text>
             </Press>
           )}
 
           {verificationState === 'sent' && (
             <Card overlayColor="rgba(34,197,94,0.12)" blurAmount={8} style={styles.statusCard}>
-              <Text style={styles.statusTitle}>Check your email</Text>
-              <Text style={styles.statusBody}>Enter the 6-digit code we sent to {email.trim()}.</Text>
-              <View style={styles.otpRow}>
-                <Input
-                  value={otp}
-                  onChangeText={t => setOtp(t.replace(/\D/g, '').slice(0, 6))}
-                  keyboardType="number-pad"
-                  placeholder="123456"
-                  style={{ flex: 1 }}
-                />
-                <Press style={styles.otpVerifyBtn} onPress={handleVerifyCode} disabled={!canVerifyCode}>
-                  <Text style={styles.otpVerifyLabel}>{verifyingCode ? 'Checking…' : 'Verify'}</Text>
-                </Press>
+              <View style={styles.statusRow}>
+                <ActivityIndicator color={C.brand} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.statusTitle}>Check your email</Text>
+                  <Text style={styles.statusBody}>
+                    Tap the verification button in the email on this device — this screen updates automatically.
+                  </Text>
+                </View>
               </View>
-              <Press onPress={handleSendCode} disabled={sendingCode}>
-                <Text style={styles.resendText}>{sendingCode ? 'Sending…' : 'Resend code'}</Text>
+              <Press onPress={handleSendVerification} disabled={sendingEmail}>
+                <Text style={styles.resendText}>{sendingEmail ? 'Sending…' : 'Resend email'}</Text>
               </Press>
             </Card>
           )}
@@ -158,6 +159,14 @@ export default function RegisterScreen({ navigation }) {
           <Btn kind="solid" onPress={handleSubmit} disabled={!canSubmit} style={{ marginTop: 4 }}>
             {submitting ? 'Creating account…' : 'Create Account'}
           </Btn>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <GoogleButton onPress={handleGoogleSignIn} loading={googleLoading} disabled={submitting} />
         </Card>
 
         <Press style={styles.bottomLinkWrap} onPress={() => navigation.navigate('Login')}>
@@ -180,14 +189,15 @@ const styles = StyleSheet.create({
   verifyBtnText: { fontFamily: SANS.semibold, fontSize: 14, color: C.brand },
   verifyBtnTextDisabled: { color: C.ink3 },
   statusCard: { padding: 14, marginBottom: 16, marginTop: -2 },
+  statusRow: { flexDirection: 'row', alignItems: 'center' },
   statusTitle: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   statusBody: { fontFamily: SANS.regular, fontSize: 13, color: C.ink2, marginTop: 3, lineHeight: 18 },
   statusVerified: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.brand2 },
-  otpRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  otpVerifyBtn: { backgroundColor: C.brand, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 16 },
-  otpVerifyLabel: { fontFamily: SANS.semibold, fontSize: 14, color: '#FFFFFF' },
   resendText: { fontFamily: SANS.medium, fontSize: 13, color: C.brand, marginTop: 10 },
   errorText: { fontFamily: SANS.regular, fontSize: 13.5, color: C.stage2, marginBottom: 14 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.hair },
+  dividerText: { fontFamily: SANS.medium, fontSize: 13, color: C.ink3 },
   bottomLinkWrap: { alignItems: 'center', marginTop: 24, marginBottom: 20 },
   bottomLinkText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2 },
   bottomLinkStrong: { fontFamily: SANS.semibold, color: C.brand },

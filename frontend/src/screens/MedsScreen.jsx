@@ -22,6 +22,7 @@ import {
 import { fmtDay } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
@@ -35,6 +36,7 @@ import LinearGradient from 'react-native-linear-gradient';
 export default function MedsScreen() {
   const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings } = useData();
   const ask = useAsk();
+  const bottomPad = useTabBarClearance();
   const [name, setName] = useState('');
   const [dose, setDose] = useState('');
   const [picked, setPicked] = useState([]);
@@ -44,7 +46,6 @@ export default function MedsScreen() {
   const [saving, setSaving] = useState(false);
   const [restock, setRestock] = useState(null);
   const [restockQty, setRestockQty] = useState('');
-  const [editTimes, setEditTimes] = useState(false);
   const [timePickerFor, setTimePickerFor] = useState(null);
   const [note, setNote] = useState('');
 
@@ -152,7 +153,7 @@ export default function MedsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <Head
         title="Medicines"
         icon={G.meds(C.mint)}
@@ -253,6 +254,7 @@ export default function MedsScreen() {
 
           <View style={{ marginTop: 20 }}>
             <Mono>When do you take it</Mono>
+            <Text style={styles.hintText}>Tap the time to change it.</Text>
             <View style={{ marginTop: 10 }}>
               {SLOTS.map(s => {
                 const on = picked.includes(s.key);
@@ -264,7 +266,9 @@ export default function MedsScreen() {
                           {s.label}
                           {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.7 }}> · {s.sub}</Text> : ''}
                         </Text>
-                        <Text style={styles.slotOptTime}>{prettyTime(times[s.key])}</Text>
+                        <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
+                          <Text style={styles.slotOptTime}>{prettyTime(times[s.key])}</Text>
+                        </Press>
                       </LinearGradient>
                     ) : (
                       <View style={[styles.slotOpt, styles.slotOptOff]}>
@@ -272,13 +276,31 @@ export default function MedsScreen() {
                           {s.label}
                           {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.6 }}> · {s.sub}</Text> : ''}
                         </Text>
-                        <Text style={[styles.slotOptTime, { color: C.ink2 }]}>{prettyTime(times[s.key])}</Text>
+                        <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
+                          <Text style={[styles.slotOptTime, { color: C.ink2 }]}>{prettyTime(times[s.key])}</Text>
+                        </Press>
                       </View>
                     )}
                   </Press>
                 );
               })}
             </View>
+            {timePickerFor && (
+              <DateTimePicker
+                value={timeToDate(times[timePickerFor])}
+                mode="time"
+                is24Hour={false}
+                display="default"
+                onChange={(event, selected) => {
+                  const key = timePickerFor;
+                  setTimePickerFor(null);
+                  if (event.type === 'dismissed' || !selected) return;
+                  const hh = String(selected.getHours()).padStart(2, '0');
+                  const mm = String(selected.getMinutes()).padStart(2, '0');
+                  setSettings({ times: { ...times, [key]: `${hh}:${mm}` } });
+                }}
+              />
+            )}
           </View>
           <View style={styles.row2}>
             <Btn kind="quiet" style={{ flex: 1 }} onClick={() => { setAdding(false); setName(''); setDose(''); setPicked([]); }}>
@@ -401,58 +423,6 @@ export default function MedsScreen() {
       </Card>
 
       <Card style={{ marginTop: 10 }}>
-        <Press onPress={() => setEditTimes(v => !v)} style={styles.doseTimesHeader}>
-          <Mono>Your dose times</Mono>
-          <View style={[editTimes && { transform: [{ rotate: '180deg' }] }]}>
-            <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round">
-              <Path d="M6 9l6 6 6-6" />
-            </Svg>
-          </View>
-        </Press>
-        {editTimes ? (
-          <View style={{ marginTop: 8 }}>
-            {SLOTS.map(s => (
-              <View key={s.key} style={styles.timeRow}>
-                <View>
-                  <Text style={styles.timeSlotLabel}>{s.label}</Text>
-                  {s.sub ? <Mono style={{ marginTop: 2 }}>{s.sub}</Mono> : null}
-                </View>
-                <Press onPress={() => setTimePickerFor(s.key)} style={styles.timeBtn}>
-                  <Text style={styles.timeBtnLabel}>{prettyTime(times[s.key])}</Text>
-                </Press>
-              </View>
-            ))}
-            <Text style={styles.hintText}>Set these to when you actually eat. Every reminder is calculated from them.</Text>
-            {timePickerFor && (
-              <DateTimePicker
-                value={timeToDate(times[timePickerFor])}
-                mode="time"
-                is24Hour={false}
-                display="default"
-                onChange={(event, selected) => {
-                  const key = timePickerFor;
-                  setTimePickerFor(null);
-                  if (event.type === 'dismissed' || !selected) return;
-                  const hh = String(selected.getHours()).padStart(2, '0');
-                  const mm = String(selected.getMinutes()).padStart(2, '0');
-                  setSettings({ times: { ...times, [key]: `${hh}:${mm}` } });
-                }}
-              />
-            )}
-          </View>
-        ) : (
-          <View style={styles.timesPreviewRow}>
-            {SLOTS.map(s => (
-              <View key={s.key}>
-                <Mono>{s.label.split(' ').pop()}</Mono>
-                <Text style={styles.timesPreviewValue}>{prettyTime(times[s.key])}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </Card>
-
-      <Card style={{ marginTop: 10 }}>
         <Mono>Important</Mono>
         <Text style={styles.importantText}>
           This is a reminder list you control. It does not check doses, interactions or timing — only your doctor or pharmacist can do that. Never start, stop or change a medicine because of anything in this app.
@@ -492,6 +462,7 @@ const styles = StyleSheet.create({
   slotOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15 },
   slotOptOff: { backgroundColor: 'rgba(22,36,28,0.05)', borderWidth: 1, borderColor: C.hair },
   slotOptLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
+  slotTimeBtn: { paddingVertical: 6, paddingHorizontal: 10, marginVertical: -6, marginHorizontal: -10, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.14)' },
   slotOptTime: { fontFamily: MONO.medium, fontSize: 13, letterSpacing: 0.6, opacity: 0.9, color: '#FFFFFF' },
   row2: { flexDirection: 'row', gap: 8, marginTop: 16 },
   inactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
@@ -510,12 +481,5 @@ const styles = StyleSheet.create({
   restockInput: { flex: 1, borderWidth: 1, borderColor: C.hair, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 13, fontFamily: SANS.regular, fontSize: 15, color: C.ink, backgroundColor: C.card },
   restockSave: { backgroundColor: C.panel, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 16 },
   restockSaveLabel: { fontFamily: SANS.semibold, fontSize: 14, color: C.onPanel },
-  doseTimesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.hair },
-  timeSlotLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
-  timeBtn: { borderWidth: 1, borderColor: C.hair, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: 'rgba(22,36,28,0.05)' },
-  timeBtnLabel: { fontFamily: MONO.medium, fontSize: 14.5, color: C.ink },
-  timesPreviewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10 },
-  timesPreviewValue: { fontFamily: SANS.semibold, fontSize: 15, color: C.ink },
   importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

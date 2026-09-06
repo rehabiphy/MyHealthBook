@@ -45,6 +45,20 @@ const VIEWER_TABS = [
    text show through sharply enough to visually collide with the tab
    labels. A real blur is what turns it into an indistinct wash
    instead, which is the one case here where that trade-off is safe. */
+/* The bar floats as an absolutely-positioned overlay (see the note
+   above), so it never reserves layout space of its own — every
+   screen's ScrollView has to pad its content bottom by however far
+   the bar's own top edge sits above the screen bottom, or the last
+   bit of content ends up hidden behind it. That distance depends on
+   `insets.bottom`, which some Android OEMs (gesture-nav OnePlus
+   devices among them) report much larger than the ~12px floor this
+   file otherwise assumes — a screen using a hardcoded pixel constant
+   instead of this hook stays wrong on exactly those devices. */
+export function useTabBarClearance() {
+  const insets = useSafeAreaInsets();
+  return Math.max(insets.bottom, 12) + 110;
+}
+
 export default function TabBar({ activeKey, onNavigate }) {
   const { data } = useData();
   const insets = useSafeAreaInsets();

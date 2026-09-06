@@ -6,6 +6,7 @@ import { SANS } from '../theme/typography';
 import { activeMeds, refillColor, refillLabel, refillsDue, slotOf } from '../lib/meds';
 import { useData } from '../state/DataContext';
 import { useGo } from '../navigation/useGo';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
@@ -23,6 +24,7 @@ function Big({ children, style }) {
 export default function HealthScreen() {
   const { data, setData, saveHealth } = useData();
   const go = useGo();
+  const bottomPad = useTabBarClearance();
   const [edit, setEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -57,7 +59,7 @@ export default function HealthScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <Head title="Health Summary" caption="your important health information at a glance" icon={G.health(C.mint)} tint={C.mint} />
 
       <Card style={{ padding: 20 }}>

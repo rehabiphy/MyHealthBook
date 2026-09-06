@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { ARTICLES } from '../lib/articles';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
@@ -12,9 +13,10 @@ import { G } from '../components/icons/ScreenGlyphs';
 
 export default function LearnScreen() {
   const [open, setOpen] = useState(null);
+  const bottomPad = useTabBarClearance();
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <Head title="Learn" caption={`${ARTICLES.length} reads · general information, not advice`} icon={G.learn(C.low)} tint={C.low} />
       {ARTICLES.map((a, i) => (
         <Press key={i} onPress={() => setOpen(open === i ? null : i)} style={styles.card}>

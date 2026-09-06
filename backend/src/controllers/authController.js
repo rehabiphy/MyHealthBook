@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import EmailVerification from '../models/EmailVerification.js';
 import PasswordResetOtp from '../models/PasswordResetOtp.js';
-import { sendOtpEmail } from '../utils/mailer.js';
+import { sendOtpEmail, sendVerificationLinkEmail } from '../utils/mailer.js';
 import { isValidEmail, isNonEmptyString, isValidPhone, isValidPassword } from '../utils/validators.js';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -16,6 +16,10 @@ function normalizeEmail(email) {
 
 function generateOtp() {
   return String(crypto.randomInt(100000, 1000000));
+}
+
+function generateVerifyToken() {
+  return crypto.randomBytes(24).toString('hex');
 }
 
 function publicUser(user) {
@@ -52,45 +56,75 @@ export async function sendVerification(req, res) {
     return res.status(409).json({ success: false, message: 'An account with this email already exists' });
   }
 
-  const otp = generateOtp();
+  const token = generateVerifyToken();
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
   await EmailVerification.findOneAndUpdate(
     { email: normalizedEmail },
-    { email: normalizedEmail, otp, attempts: 0, verified: false, expiresAt },
+    { email: normalizedEmail, otp: token, attempts: 0, verified: false, expiresAt },
     { upsert: true, setDefaultsOnInsert: true },
   );
 
-  await sendOtpEmail({ to: normalizedEmail, name: name.trim(), otp, purpose: 'register' });
+  const base = process.env.WEB_BASE_URL || 'https://myhealthbook.rehabiphy.com';
+  const verifyUrl = `${base}/verify?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
 
-  return res.json({ success: true, message: 'Verification code sent' });
+  await sendVerificationLinkEmail({ to: normalizedEmail, name: name.trim(), verifyUrl });
+
+  return res.json({ success: true, message: 'Verification email sent' });
 }
 
-export async function verifyEmail(req, res) {
-  const { email, otp } = req.body || {};
+/* Shared by the POST /api/auth/verify-email route (called by the app
+   itself when the https App Link opens it directly) AND the GET
+   /verify web-fallback page in app.js (hit when the app isn't
+   installed, or App Links verification hasn't gone through yet, so
+   the link just opens in a normal browser instead). */
+export async function performEmailVerification(email, token) {
   const normalizedEmail = normalizeEmail(email);
 
   const record = await EmailVerification.findOne({ email: normalizedEmail });
   if (!record) {
-    return res.status(400).json({ success: false, message: 'No verification code was sent to this email' });
+    return { ok: false, message: 'No verification request found for this email' };
   }
   if (record.expiresAt.getTime() < Date.now()) {
     await EmailVerification.deleteOne({ _id: record._id });
-    return res.status(400).json({ success: false, message: 'This code has expired. Please request a new one.' });
+    return { ok: false, message: 'This link has expired. Please request a new one from the app.' };
+  }
+  if (record.verified) {
+    return { ok: true, alreadyVerified: true };
   }
   if (record.attempts >= MAX_OTP_ATTEMPTS) {
-    return res.status(400).json({ success: false, message: 'Too many attempts. Please request a new code.' });
+    return { ok: false, message: 'Too many attempts. Please request a new link.' };
   }
-  if (record.otp !== String(otp || '').trim()) {
+  if (record.otp !== String(token || '').trim()) {
     record.attempts += 1;
     await record.save();
-    return res.status(400).json({ success: false, message: 'Incorrect code' });
+    return { ok: false, message: 'Invalid verification link' };
   }
 
   record.verified = true;
   await record.save();
+  return { ok: true };
+}
 
+export async function verifyEmail(req, res) {
+  const { email, token, otp } = req.body || {};
+  const result = await performEmailVerification(email, token ?? otp);
+  if (!result.ok) {
+    return res.status(400).json({ success: false, message: result.message });
+  }
   return res.json({ success: true, verified: true });
+}
+
+export async function checkVerificationStatus(req, res) {
+  const { email } = req.body || {};
+  const normalizedEmail = normalizeEmail(email);
+
+  const record = await EmailVerification.findOne({ email: normalizedEmail });
+  if (!record || record.expiresAt.getTime() < Date.now()) {
+    return res.json({ success: true, verified: false, expired: !!record });
+  }
+
+  return res.json({ success: true, verified: record.verified });
 }
 
 export async function register(req, res) {
@@ -188,7 +222,7 @@ export async function forgotPasswordSendOtp(req, res) {
     { upsert: true, setDefaultsOnInsert: true },
   );
 
-  await sendOtpEmail({ to: normalizedEmail, name: user.name, otp, purpose: 'reset' });
+  await sendOtpEmail({ to: normalizedEmail, name: user.name, otp });
 
   return res.json({ success: true, message: 'Reset code sent' });
 }

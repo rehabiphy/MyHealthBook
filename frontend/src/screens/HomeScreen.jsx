@@ -9,6 +9,7 @@ import { weeklyDue } from '../lib/family';
 import { greeting } from '../lib/appName';
 import { useData } from '../state/DataContext';
 import { useGo } from '../navigation/useGo';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Card from '../components/atoms/Card';
 import Chip from '../components/atoms/Chip';
 import Mono from '../components/atoms/Mono';
@@ -42,6 +43,7 @@ function Tile({ glyph, color, name, value, unit, when, onPress }) {
 export default function HomeScreen() {
   const { data } = useData();
   const go = useGo();
+  const bottomPad = useTabBarClearance();
   const bp = data.bp[0];
   const w = data.body[0];
   const sugar = data.sugar[0];
@@ -52,10 +54,9 @@ export default function HomeScreen() {
   const shown = picked != null ? rows[picked] : rows[rows.length - 1];
   const doses = dosesToday(data);
   const left = doses.filter(x => !isTaken(data, x.id));
-  const hist = data.history || [];
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <View style={styles.greetingWrap}>
         <GradientText gradient={GRAD} style={styles.greeting}>
           {`${greeting()},\n${data.profile.name || 'there'}`}
@@ -230,18 +231,12 @@ export default function HomeScreen() {
           </Text>
           <Mono style={{ marginTop: 5 }}>{data.health?.bloodGroup ? `blood ${data.health.bloodGroup}` : 'what matters today'}</Mono>
         </Card>
-        <Card style={{ flex: 1, padding: 18 }} onPress={() => go('history')}>
-          <Mono>Medical records</Mono>
-          <Text style={styles.linkTitle}>{hist.length > 0 ? `${hist.length} record${hist.length === 1 ? '' : 's'}` : 'Add the past'}</Text>
-          <Mono style={{ marginTop: 5 }}>{hist.length ? `last ${fmtDay([...hist].sort((a, b) => b.date - a.date)[0].date).toLowerCase()}` : 'tests, scans, surgery'}</Mono>
+        <Card style={{ flex: 1, padding: 18 }} onPress={() => go('coach')}>
+          <Mono style={{ color: C.brand }}>AI coach</Mono>
+          <Text style={styles.linkTitle}>What to eat</Text>
+          <Mono style={{ marginTop: 5 }}>how to move</Mono>
         </Card>
       </View>
-
-      <Card style={{ marginTop: 10 }} onPress={() => go('coach')}>
-        <Mono style={{ color: C.brand }}>AI coach</Mono>
-        <Text style={styles.weeklyTitle}>What to eat, how to move</Text>
-        <Text style={styles.coachSub}>Meals and workouts built from your own numbers.</Text>
-      </Card>
     </ScrollView>
   );
 }
@@ -289,5 +284,4 @@ const styles = StyleSheet.create({
   // other card, with green carried only by the "Weekly update"/"AI coach" label text
   weeklyTitle: { fontFamily: SANS.semibold, fontSize: 16, letterSpacing: -0.4, marginTop: 7, color: C.ink },
   linkTitle: { fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, marginTop: 9, lineHeight: 21, color: C.ink },
-  coachSub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 5, lineHeight: 21 },
 });

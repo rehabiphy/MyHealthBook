@@ -3,12 +3,13 @@
  * React Native CLI port of the original web/Artifact ui.jsx.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/state/AuthContext';
 import { DataProvider } from './src/state/DataContext';
 import { AskDialogProvider } from './src/state/AskDialogContext';
+import { configureGoogleSignIn } from './src/lib/googleAuth';
 import RootNavigator from './src/navigation/RootNavigator';
 
 /* react-native-screens is enabled by default (no enableScreens() call
@@ -19,6 +20,10 @@ import RootNavigator from './src/navigation/RootNavigator';
    tab's translucent blur layers on top of each other, which is what
    was producing the dim/muddy look. */
 export default function App() {
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />

@@ -30,6 +30,19 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="myhealthbook" android:host="verify" />
         </intent-filter>
+        <!-- Real Android App Link: https://myhealthbook.rehabiphy.com/verify?...
+             autoVerify="true" makes Android check backend/public/.well-known/
+             assetlinks.json on install and, once verified, open this app
+             directly instead of a browser when the link is tapped — this is
+             what makes the email's "Verify My Email" button work reliably
+             (a bare custom scheme is stripped by some mail clients; a normal-
+             looking https link isn't). -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="myhealthbook.rehabiphy.com" android:pathPrefix="/verify" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

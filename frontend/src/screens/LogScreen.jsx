@@ -5,6 +5,7 @@ import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { BANDS, BMI_BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime, kg1 } from '../lib/calc';
 import { useData } from '../state/DataContext';
+import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
 import Seg from '../components/atoms/Seg';
@@ -24,6 +25,7 @@ const TABS = [
 
 export default function LogScreen() {
   const { data, addBpReading, addBodyReading, addSugarReading, deleteReading } = useData();
+  const bottomPad = useTabBarClearance();
   const [tab, setTab] = useState('bp');
   const [sys, setSys] = useState(120);
   const [dia, setDia] = useState(80);
@@ -62,7 +64,7 @@ export default function LogScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <Head title="Readings" caption="pressure · body · sugar" icon={G.readings(C.low)} tint={C.low} />
         <Seg value={tab} onChange={setTab} options={TABS} />
 
