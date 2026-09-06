@@ -8,6 +8,7 @@ import { dosesToday, isTaken, prettyTime, slotOf } from '../lib/meds';
 import { weeklyDue } from '../lib/family';
 import { greeting } from '../lib/appName';
 import { useData } from '../state/DataContext';
+import { useAuth } from '../state/AuthContext';
 import { useGo } from '../navigation/useGo';
 import { useTabBarClearance } from '../navigation/TabBar';
 import Card from '../components/atoms/Card';
@@ -17,7 +18,7 @@ import GradientText from '../components/atoms/GradientText';
 import DoseCheckbox from '../components/atoms/DoseCheckbox';
 import Dial from '../components/charts/Dial';
 import Trend from '../components/charts/Trend';
-import { GaugeGlyph, PulseGlyph } from '../components/icons/ScreenGlyphs';
+import { GaugeGlyph, PulseGlyph, G } from '../components/icons/ScreenGlyphs';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 function Label({ children }) {
@@ -42,8 +43,10 @@ function Tile({ glyph, color, name, value, unit, when, onPress }) {
 
 export default function HomeScreen() {
   const { data } = useData();
+  const { user } = useAuth();
   const go = useGo();
   const bottomPad = useTabBarClearance();
+  const isPremium = user?.subscription === 'premium' && user?.premiumExpiry && new Date(user.premiumExpiry).getTime() > Date.now();
   const bp = data.bp[0];
   const w = data.body[0];
   const sugar = data.sugar[0];
@@ -75,6 +78,18 @@ export default function HomeScreen() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.bookTitle}>MyHealthBook</Text>
             <Text style={styles.bookSub}>Your health information, organised in one place.</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card style={{ marginTop: 10, padding: 18 }} onPress={() => go('insights')}>
+        <View style={styles.bookRow}>
+          <Chip color={C.brand} size={52}>
+            {G.insights(C.brand)}
+          </Chip>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.bookTitle}>AI Health Insights</Text>
+            <Text style={styles.bookSub}>{isPremium ? 'Premium · unlimited' : '3 free insights a month'}</Text>
           </View>
         </View>
       </Card>

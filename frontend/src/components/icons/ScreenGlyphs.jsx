@@ -45,6 +45,17 @@ export const G = {
       <Path d="M4 6.5h16v9H10l-4.5 3.5v-3.5H4z" />
     </Svg>
   ),
+  premium: c => (
+    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 8.5l4 3 4-6 4 6 4-3-1.8 9.5H5.8z" />
+    </Svg>
+  ),
+  insights: c => (
+    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 3.5v2.4M12 18.1v2.4M4.6 12H7M17 12h2.4M6.7 6.7l1.7 1.7M15.6 15.6l1.7 1.7M6.7 17.3l1.7-1.7M15.6 8.4l1.7-1.7" />
+      <Circle cx="12" cy="12" r="3.2" />
+    </Svg>
+  ),
 };
 
 export const GaugeGlyph = ({ c }) => (

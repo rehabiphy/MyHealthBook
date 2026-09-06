@@ -10,6 +10,7 @@ import { AuthProvider } from './src/state/AuthContext';
 import { DataProvider } from './src/state/DataContext';
 import { AskDialogProvider } from './src/state/AskDialogContext';
 import { configureGoogleSignIn } from './src/lib/googleAuth';
+import { setupForegroundNotifications } from './src/lib/notifications';
 import RootNavigator from './src/navigation/RootNavigator';
 
 /* react-native-screens is enabled by default (no enableScreens() call
@@ -22,6 +23,8 @@ import RootNavigator from './src/navigation/RootNavigator';
 export default function App() {
   useEffect(() => {
     configureGoogleSignIn();
+    const unsubscribe = setupForegroundNotifications();
+    return unsubscribe;
   }, []);
 
   return (

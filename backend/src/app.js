@@ -8,7 +8,10 @@ import recordsRoutes from './routes/recordsRoutes.js';
 import medsRoutes from './routes/medsRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import insightsRoutes from './routes/insightsRoutes.js';
 import { performEmailVerification } from './controllers/authController.js';
+import './utils/firebaseAdmin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
@@ -61,6 +64,10 @@ app.use('/api/records', recordsRoutes);
 app.use('/api/meds', medsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/coach', coachRoutes);
+// PayU's success/failure callback posts application/x-www-form-urlencoded,
+// not JSON — scoped to just this route rather than added globally.
+app.use('/api/payments', express.urlencoded({ extended: true }), paymentRoutes);
+app.use('/api/insights', insightsRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not found' }));
 

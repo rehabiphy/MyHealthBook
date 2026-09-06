@@ -21,6 +21,9 @@ import HealthScreen from '../screens/HealthScreen';
 import CoachScreen from '../screens/CoachScreen';
 import LearnScreen from '../screens/LearnScreen';
 import ViewerScreen from '../screens/ViewerScreen';
+import PricingScreen from '../screens/PricingScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
+import InsightsScreen from '../screens/InsightsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -85,7 +88,7 @@ function RootShell({ navigationRef, activeKey }) {
   return (
     <View style={styles.root}>
       <AmbientBackground />
-      {activeKey !== 'coach' && <TopHeader data={data} onPressBell={() => go('meds')} onPressLearn={() => go('learn')} />}
+      {activeKey !== 'coach' && activeKey !== 'premiumCheckout' && <TopHeader data={data} onPressBell={() => go('meds')} onPressLearn={() => go('learn')} />}
       <View style={{ flex: 1 }}>
         {/* The built-in tab bar is suppressed (tabBar={() => null}) and TabBar
             is rendered separately below, absolutely positioned over the scene —
@@ -101,10 +104,13 @@ function RootShell({ navigationRef, activeKey }) {
           <Tab.Screen name="coach" component={CoachScreen} />
           <Tab.Screen name="learn" component={LearnScreen} />
           <Tab.Screen name="family" component={ViewerScreen} />
+          <Tab.Screen name="premium" component={PricingScreen} />
+          <Tab.Screen name="premiumCheckout" component={CheckoutScreen} />
+          <Tab.Screen name="insights" component={InsightsScreen} />
         </Tab.Navigator>
         <TabBar activeKey={activeKey} onNavigate={go} />
       </View>
-      {!isViewer && activeKey !== 'meds' && <DoseBanner data={data} go={go} />}
+      {!isViewer && activeKey !== 'meds' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && <DoseBanner data={data} go={go} />}
     </View>
   );
 }

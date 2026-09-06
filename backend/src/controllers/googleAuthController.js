@@ -7,6 +7,10 @@ import { isNonEmptyString } from '../utils/validators.js';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+function monthKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
 function publicUser(user) {
   return {
     id: user._id.toString(),
@@ -15,6 +19,9 @@ function publicUser(user) {
     phone: user.phone,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
+    subscription: user.subscription,
+    premiumExpiry: user.premiumExpiry,
+    insightsUsedThisMonth: user.insightsMonthKey === monthKey() ? user.insightsUsedThisMonth : 0,
   };
 }
 

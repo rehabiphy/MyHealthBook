@@ -8,6 +8,11 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     isEmailVerified: { type: Boolean, default: false },
     googleId: { type: String, unique: true, sparse: true },
+    subscription: { type: String, enum: ['free', 'premium'], default: 'free' },
+    premiumExpiry: { type: Date, default: null },
+    insightsUsedThisMonth: { type: Number, default: 0 },
+    insightsMonthKey: { type: String, default: '' },
+    fcmTokens: { type: [String], default: [] },
   },
   { timestamps: true },
 );

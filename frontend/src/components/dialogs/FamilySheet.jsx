@@ -75,7 +75,7 @@ export default function FamilySheet({ data, setData, onClose }) {
             </View>
           ) : null}
 
-          <Card style={{ padding: 20 }}>
+          <Card blur={false} style={{ padding: 20 }}>
             <Mono>Who gets the update</Mono>
             {care.circle.length === 0 && <Text style={styles.emptyText}>Nobody yet. Add a family member and their weekly summary goes out over WhatsApp — no account, no server, nothing stored anywhere but this phone.</Text>}
             {care.circle.map((m, i) => (
@@ -138,7 +138,7 @@ export default function FamilySheet({ data, setData, onClose }) {
             </View>
           </Card>
 
-          <Card style={{ marginTop: 10 }}>
+          <Card blur={false} style={{ marginTop: 10 }}>
             <Mono>Send on</Mono>
             <View style={{ flexDirection: 'row', gap: 3, backgroundColor: 'rgba(22,36,28,0.06)', padding: 4, borderRadius: 16, marginTop: 10 }}>
               {DAY_OPTIONS.map(o => {
@@ -161,7 +161,7 @@ export default function FamilySheet({ data, setData, onClose }) {
             <Text style={styles.helpText}>You'll be reminded on the day. Nothing sends by itself — you see the message before it goes.</Text>
           </Card>
 
-          <Card style={{ marginTop: 10 }}>
+          <Card blur={false} style={{ marginTop: 10 }}>
             <Mono>This week's message</Mono>
             <Text style={styles.preview}>{text}</Text>
           </Card>

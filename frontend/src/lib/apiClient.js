@@ -16,7 +16,9 @@ export async function apiRequest(path, { method = 'POST', body, token } = {}) {
 
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.success) {
-    throw new Error(json?.message || 'Something went wrong. Please try again.');
+    const err = new Error(json?.message || 'Something went wrong. Please try again.');
+    if (json) Object.assign(err, json);
+    throw err;
   }
   return json;
 }

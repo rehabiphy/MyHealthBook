@@ -22,6 +22,10 @@ function generateVerifyToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function monthKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
 function publicUser(user) {
   return {
     id: user._id.toString(),
@@ -30,6 +34,9 @@ function publicUser(user) {
     phone: user.phone,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
+    subscription: user.subscription,
+    premiumExpiry: user.premiumExpiry,
+    insightsUsedThisMonth: user.insightsMonthKey === monthKey() ? user.insightsUsedThisMonth : 0,
   };
 }
 
@@ -277,4 +284,22 @@ export async function forgotPasswordReset(req, res) {
   await PasswordResetOtp.deleteOne({ _id: record._id });
 
   return res.json({ success: true, message: 'Password reset' });
+}
+
+export async function registerFcmToken(req, res) {
+  const { token } = req.body || {};
+  if (!isNonEmptyString(token, { max: 400 })) {
+    return res.status(400).json({ success: false, message: 'token is required' });
+  }
+  await User.findByIdAndUpdate(req.user.id, { $addToSet: { fcmTokens: token } });
+  return res.json({ success: true });
+}
+
+export async function removeFcmToken(req, res) {
+  const { token } = req.body || {};
+  if (!isNonEmptyString(token, { max: 400 })) {
+    return res.status(400).json({ success: false, message: 'token is required' });
+  }
+  await User.findByIdAndUpdate(req.user.id, { $pull: { fcmTokens: token } });
+  return res.json({ success: true });
 }

@@ -21,7 +21,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
    backdrop (doesn't move) or another card's own flat colour (no fine
    detail to go stale). TabBar blurs live content scrolling past it, so
    it keeps auto-update on; cards don't need to. */
-export default function Card({ children, style, onClick, onPress, delay = 0, overlayColor = C.card, blurAmount = 14 }) {
+export default function Card({ children, style, onClick, onPress, delay = 0, overlayColor = C.card, blurAmount = 14, blur = true }) {
   const handler = onPress || onClick;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(10)).current;
@@ -42,7 +42,14 @@ export default function Card({ children, style, onClick, onPress, delay = 0, ove
 
   const inner = (
     <>
-      <BlurView style={StyleSheet.absoluteFill} blurAmount={blurAmount} autoUpdate={false} overlayColor={overlayColor} reducedTransparencyFallbackColor={C.cardSolid} />
+      {blur ? (
+        <BlurView style={StyleSheet.absoluteFill} blurAmount={blurAmount} autoUpdate={false} overlayColor={overlayColor} reducedTransparencyFallbackColor={C.cardSolid} />
+      ) : (
+        // Real blur needs a native snapshot of what's behind it — inside a
+        // <Modal> that's a separate native window, so on some Android
+        // devices it captures garbage instead (the sheet dialogs opt out).
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.cardSolid }]} />
+      )}
       <View style={styles.content}>{children}</View>
     </>
   );

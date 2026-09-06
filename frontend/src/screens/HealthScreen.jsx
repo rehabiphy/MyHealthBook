@@ -3,9 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
-import { activeMeds, refillColor, refillLabel, refillsDue, slotOf } from '../lib/meds';
 import { useData } from '../state/DataContext';
-import { useGo } from '../navigation/useGo';
 import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
@@ -13,7 +11,6 @@ import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
 import Press from '../components/atoms/Press';
 import { G } from '../components/icons/ScreenGlyphs';
-import { typeOf } from '../lib/history';
 
 const BLOOD_GROUPS = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
 
@@ -23,7 +20,6 @@ function Big({ children, style }) {
 
 export default function HealthScreen() {
   const { data, setData, saveHealth } = useData();
-  const go = useGo();
   const bottomPad = useTabBarClearance();
   const [edit, setEdit] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -31,9 +27,6 @@ export default function HealthScreen() {
   const [cond, setCond] = useState('');
   const h = data.health || { conditions: [], allergies: '', bloodGroup: '', upcoming: [] };
   const setH = patch => setData(d => ({ ...d, health: { ...h, ...patch } }));
-  const recent = [...(data.history || [])].sort((a, b) => b.date - a.date).slice(0, 3);
-  const refills = refillsDue(data);
-  const active = activeMeds(data);
 
   const toggleEdit = async () => {
     if (!edit) {
@@ -126,71 +119,6 @@ export default function HealthScreen() {
       <Btn kind={edit ? 'solid' : 'quiet'} style={{ marginTop: 10, paddingVertical: 17 }} disabled={saving} onClick={toggleEdit}>
         {saving ? 'Saving…' : edit ? 'Done editing' : 'Edit health information'}
       </Btn>
-
-      <Card style={{ marginTop: 10, padding: 20 }} onPress={() => go('meds')}>
-        <View style={styles.rowBetween}>
-          <Mono>Current medications</Mono>
-          <Mono>{active.length} active</Mono>
-        </View>
-        {active.length === 0 ? (
-          <Big style={{ color: C.ink3, marginTop: 10 }}>None added</Big>
-        ) : (
-          active.map((m, i) => (
-            <View key={m.id} style={[styles.medRow, i < active.length - 1 && styles.condRowBorder]}>
-              <Big>{m.name}</Big>
-              <Text style={styles.medSub}>
-                {m.dose ? `${m.dose} · ` : ''}
-                {m.slots.map(k => slotOf(k).label.toLowerCase()).join(', ')}
-              </Text>
-            </View>
-          ))
-        )}
-        <Text style={styles.linkText}>View current medications →</Text>
-      </Card>
-
-      <Card style={{ marginTop: 10, padding: 20 }}>
-        <Mono>Recent health activity</Mono>
-        {recent.length === 0 ? (
-          <Big style={{ color: C.ink3, marginTop: 10 }}>Nothing recorded yet</Big>
-        ) : (
-          recent.map((r, i) => (
-            <View key={r.id} style={[styles.medRow, i < recent.length - 1 && styles.condRowBorder]}>
-              <Mono>{new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Mono>
-              <Big style={{ marginTop: 3 }}>{r.title}</Big>
-              <Text style={styles.recentType}>{typeOf(r.type).label}</Text>
-            </View>
-          ))
-        )}
-        <Btn kind="quiet" style={{ marginTop: 16, paddingVertical: 16 }} onClick={() => go('history')}>
-          View medical history
-        </Btn>
-      </Card>
-
-      <Card style={{ marginTop: 10, padding: 20 }}>
-        <Mono>Upcoming</Mono>
-        {refills.length === 0 && !(h.upcoming || []).length ? (
-          <Big style={{ color: C.ink3, marginTop: 10 }}>Nothing coming up</Big>
-        ) : (
-          <>
-            {refills.map(r => (
-              <View key={r.med.id} style={[styles.medRow, styles.condRowBorder]}>
-                <Big>Medication refill · {r.med.name}</Big>
-                <Text style={[styles.refillLabel, { color: refillColor(r.days) }]}>{refillLabel(r.days)}</Text>
-              </View>
-            ))}
-            {(h.upcoming || []).map((u, i) => (
-              <View key={i} style={styles.medRow}>
-                <Big>{u.title}</Big>
-                <Text style={styles.medSub}>{u.when}</Text>
-              </View>
-            ))}
-          </>
-        )}
-      </Card>
-
-      <Btn style={{ marginTop: 10, paddingVertical: 18 }} onClick={() => go('me')}>
-        Create summary PDF · share with doctor
-      </Btn>
     </ScrollView>
   );
 }
@@ -212,10 +140,4 @@ const styles = StyleSheet.create({
   bgChipOn: { backgroundColor: C.stage2, borderColor: C.stage2 },
   bgChipLabel: { fontFamily: SANS.semibold, fontSize: 14, color: C.ink },
   bgValue: { fontFamily: SANS.bold, fontSize: 30, letterSpacing: -1.2, marginTop: 8, color: C.ink },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  medRow: { paddingVertical: 12 },
-  medSub: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 3 },
-  linkText: { fontFamily: SANS.semibold, fontSize: 15, color: C.brand, marginTop: 14 },
-  recentType: { fontFamily: SANS.regular, fontSize: 14, color: C.ink3, marginTop: 2 },
-  refillLabel: { fontFamily: SANS.semibold, fontSize: 15, marginTop: 3 },
 });

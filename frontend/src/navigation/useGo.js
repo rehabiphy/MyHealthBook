@@ -6,5 +6,5 @@ import { useCallback } from 'react';
    regardless of which tab they're currently on. */
 export function useGo() {
   const navigation = useNavigation();
-  return useCallback(key => navigation.navigate(key), [navigation]);
+  return useCallback((key, params) => navigation.navigate(key, params), [navigation]);
 }

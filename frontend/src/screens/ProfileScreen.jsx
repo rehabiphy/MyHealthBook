@@ -34,7 +34,7 @@ function Row({ label, children }) {
 }
 
 export default function ProfileScreen() {
-  const { data, setData, saveProfile, setCareRole, deleteAllReadings } = useData();
+  const { data, setData, saveProfile, deleteAllReadings } = useData();
   const { signOut } = useAuth();
   const ask = useAsk();
   const bottomPad = useTabBarClearance();
@@ -196,24 +196,12 @@ export default function ProfileScreen() {
         <Text style={[styles.hintText, { paddingTop: 14 }]}>Fill these in and the report goes straight to your doctor. Include the country code.</Text>
       </Card>
 
-      <Card style={{ marginTop: 10 }}>
-        <Mono>This phone is</Mono>
-        <View style={{ marginTop: 10 }}>
-          <Seg
-            value={data.care?.role || 'logger'}
-            onChange={v => setCareRole(v).catch(err => setNote(err.message))}
-            options={[
-              { value: 'logger', label: 'Logging' },
-              { value: 'viewer', label: 'Receiving' },
-            ]}
-          />
-        </View>
-        <Text style={styles.hintText}>Logging is the full app, for whoever takes the readings. Receiving is the family view — no logging, just the weekly updates that arrive by WhatsApp.</Text>
-        {(data.care?.role || 'logger') === 'logger' && (
-          <Btn kind="quiet" style={{ marginTop: 14 }} onClick={() => setFamily(true)}>
-            Family circle{data.care?.circle?.length ? ` · ${data.care.circle.length}` : ''}
-          </Btn>
-        )}
+      <View style={styles.sectionPad}>
+        <Mono>Family Circle</Mono>
+      </View>
+      <Card>
+        <Text style={styles.hintText}>Create your Family Circle by adding family members or relatives who can stay connected with your health information and important updates.</Text>
+        <Btn style={{ marginTop: 14 }} onClick={() => setFamily(true)}>{`Add Contact${data.care?.circle?.length ? ` · ${data.care.circle.length}` : ''}`}</Btn>
       </Card>
 
       <Card style={{ marginTop: 10 }}>

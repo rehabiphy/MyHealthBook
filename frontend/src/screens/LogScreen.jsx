@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { BANDS, BMI_BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime, kg1 } from '../lib/calc';
 import { useData } from '../state/DataContext';
+import { useAuth } from '../state/AuthContext';
+import { useGo } from '../navigation/useGo';
 import { useTabBarClearance } from '../navigation/TabBar';
 import Head from '../components/atoms/Head';
 import Card from '../components/atoms/Card';
@@ -15,7 +18,11 @@ import Btn from '../components/atoms/Btn';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
 import Toast from '../components/atoms/Toast';
+import BpUpgradeBanner from '../components/BpUpgradeBanner';
 import { G } from '../components/icons/ScreenGlyphs';
+
+const UPGRADE_BANNER_KEY = 'upgradeBannerLastShownAt';
+const UPGRADE_BANNER_THROTTLE_MS = 3 * 24 * 60 * 60 * 1000;
 
 const TABS = [
   { value: 'bp', label: 'Pressure' },
@@ -25,6 +32,8 @@ const TABS = [
 
 export default function LogScreen() {
   const { data, addBpReading, addBodyReading, addSugarReading, deleteReading } = useData();
+  const { user } = useAuth();
+  const go = useGo();
   const bottomPad = useTabBarClearance();
   const [tab, setTab] = useState('bp');
   const [sys, setSys] = useState(120);
@@ -36,6 +45,21 @@ export default function LogScreen() {
   const [kind, setKind] = useState('fasting');
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showUpgradeBanner, setShowUpgradeBanner] = useState(false);
+
+  const isPremium = user?.subscription === 'premium' && user?.premiumExpiry && new Date(user.premiumExpiry).getTime() > Date.now();
+
+  const maybeShowUpgradeBanner = async () => {
+    if (isPremium || data.bp.length < 3) return;
+    try {
+      const lastShown = Number(await AsyncStorage.getItem(UPGRADE_BANNER_KEY)) || 0;
+      if (Date.now() - lastShown < UPGRADE_BANNER_THROTTLE_MS) return;
+      await AsyncStorage.setItem(UPGRADE_BANNER_KEY, String(Date.now()));
+      setShowUpgradeBanner(true);
+    } catch {
+      // AsyncStorage hiccup — skip the banner this time, not worth surfacing an error for
+    }
+  };
 
   const flash = m => {
     setToast(m);
@@ -88,6 +112,7 @@ export default function LogScreen() {
                     try {
                       await addBpReading({ sys, dia, pulse });
                       flash('Reading saved');
+                      maybeShowUpgradeBanner();
                     } catch (err) {
                       flash(err.message);
                     } finally {
@@ -96,6 +121,9 @@ export default function LogScreen() {
                   }}>
                   {saving ? 'Saving…' : 'Save reading'}
                 </Btn>
+                {showUpgradeBanner && (
+                  <BpUpgradeBanner onPress={() => go('premium')} onDismiss={() => setShowUpgradeBanner(false)} />
+                )}
               </View>
             </>
           )}

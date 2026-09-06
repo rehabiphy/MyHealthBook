@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { loadSession, saveSession, clearSession, clearPendingRegistration } from '../lib/authStorage';
+import { getMe } from '../lib/authApi';
+import * as fcmApi from '../lib/fcmApi';
+import { requestNotificationPermission, getFcmToken, onFcmTokenRefresh } from '../lib/notifications';
 
 const AuthContext = createContext(null);
 
@@ -14,6 +17,44 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [ready, setReady] = useState(false);
+  const fcmTokenRef = useRef(null);
+
+  /* Registers this device's FCM token against whoever is currently
+     logged in — runs for login, register, Google sign-in, AND an app
+     relaunch that restores an already-persisted session, since all of
+     those just result in `token` becoming truthy. Best-effort: a
+     failed permission grant or registration call shouldn't block using
+     the app. Also re-registers if the token rotates while logged in. */
+  useEffect(() => {
+    if (!token) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await requestNotificationPermission();
+        const fcmToken = await getFcmToken();
+        if (cancelled) return;
+        fcmTokenRef.current = fcmToken;
+        await fcmApi.registerFcmToken({ token: fcmToken }, token);
+      } catch {
+        // permission denied, no Play Services, or a network hiccup — not fatal
+      }
+    })();
+
+    const unsubscribe = onFcmTokenRefresh(async nextFcmToken => {
+      fcmTokenRef.current = nextFcmToken;
+      try {
+        await fcmApi.registerFcmToken({ token: nextFcmToken }, token);
+      } catch {
+        // will retry next refresh/relaunch
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [token]);
 
   useEffect(() => {
     (async () => {
@@ -38,12 +79,29 @@ export function AuthProvider({ children }) {
     setUser(nextUser);
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    if (token && fcmTokenRef.current) {
+      try {
+        await fcmApi.removeFcmToken({ token: fcmTokenRef.current }, token);
+      } catch {
+        // best-effort — a stale token left behind just means one fewer
+        // useful push target, not a broken logout
+      }
+    }
     setToken(null);
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, token, ready, signIn, signOut }}>{children}</AuthContext.Provider>;
+  /* Re-fetches the user from the backend — needed after a PayU checkout
+     completes, so the app picks up the new subscription/premiumExpiry
+     without forcing a re-login. */
+  const refreshUser = async () => {
+    if (!token) return;
+    const res = await getMe(token);
+    setUser(res.user);
+  };
+
+  return <AuthContext.Provider value={{ user, token, ready, signIn, signOut, refreshUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

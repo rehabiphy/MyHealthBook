@@ -14,7 +14,7 @@ export default function Seg({ options, value, onChange, style }) {
         const on = value === o.value;
         return (
           <Pressable key={o.value} onPress={() => onChange(o.value)} style={({ pressed }) => [styles.opt, pressed && !on && styles.pressed]}>
-            {on && <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={StyleSheet.absoluteFill} />}
+            {on && <LinearGradient pointerEvents="none" colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={StyleSheet.absoluteFill} />}
             <Text style={[styles.label, { color: on ? '#FFFFFF' : C.ink2 }]} numberOfLines={1}>
               {o.label}
             </Text>
