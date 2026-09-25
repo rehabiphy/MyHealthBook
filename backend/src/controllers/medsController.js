@@ -88,6 +88,18 @@ export async function setMedicineStatus(req, res) {
   return res.json({ success: true, medicine: publicMedicine(medicine) });
 }
 
+/* Hard delete, for undoing a medicine added by mistake (MyHealth AI's
+   "Undo"). Stopping a real medicine goes through setMedicineStatus
+   instead, which keeps its history. */
+export async function deleteMedicine(req, res) {
+  const result = await Medicine.deleteOne({ _id: req.params.id, userId: req.user.id });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ success: false, message: 'Medicine not found' });
+  }
+  await DoseLog.deleteMany({ userId: req.user.id, medId: req.params.id });
+  return res.json({ success: true });
+}
+
 export async function restockMedicine(req, res) {
   const { id } = req.params;
   const { qty } = req.body || {};

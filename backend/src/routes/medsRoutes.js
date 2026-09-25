@@ -6,6 +6,7 @@ import {
   createMedicine,
   setMedicineStatus,
   restockMedicine,
+  deleteMedicine,
   getTaken,
   toggleTaken,
   getSettings,
@@ -18,6 +19,7 @@ router.get('/', requireAuth, catchAsync(getMedicines));
 router.post('/', requireAuth, catchAsync(createMedicine));
 router.patch('/:id/status', requireAuth, catchAsync(setMedicineStatus));
 router.patch('/:id/restock', requireAuth, catchAsync(restockMedicine));
+router.delete('/:id', requireAuth, catchAsync(deleteMedicine));
 router.get('/taken', requireAuth, catchAsync(getTaken));
 router.post('/taken', requireAuth, catchAsync(toggleTaken));
 router.get('/settings', requireAuth, catchAsync(getSettings));

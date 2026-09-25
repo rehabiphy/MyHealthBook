@@ -6,7 +6,7 @@ import { GRAD } from '../theme/gradients';
 import { BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime } from '../lib/calc';
 import { dosesToday, isTaken, prettyTime, slotOf } from '../lib/meds';
 import { weeklyDue } from '../lib/family';
-import { greeting } from '../lib/appName';
+import { displayName, greeting } from '../lib/appName';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { useGo } from '../navigation/useGo';
@@ -62,7 +62,7 @@ export default function HomeScreen() {
     <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
       <View style={styles.greetingWrap}>
         <GradientText gradient={GRAD} style={styles.greeting}>
-          {`${greeting()},\n${data.profile.name || 'there'}`}
+          {`${greeting()},\n${displayName(data.profile, user) || 'there'}`}
         </GradientText>
       </View>
 

@@ -50,6 +50,11 @@ export function DataProvider({ children }) {
   const [data, setData] = useState(EMPTY);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  /* The token whose data has finished loading. `ready` can already be
+     true while a signed-in user's data is still in flight (it was set
+     for the signed-out state first), so anything that must see the real
+     profile — like the spoken launch greeting — waits on this instead. */
+  const [loadedToken, setLoadedToken] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -91,6 +96,7 @@ export function DataProvider({ children }) {
         if (!cancelled) {
           setLoading(false);
           setReady(true);
+          setLoadedToken(token);
         }
       }
     })();
@@ -105,6 +111,7 @@ export function DataProvider({ children }) {
   const addBpReading = async ({ sys, dia, pulse }) => {
     const res = await readingsApi.addBpReading({ sys, dia, pulse }, token);
     setData(d => ({ ...d, bp: [res.reading, ...d.bp] }));
+    return res.reading;
   };
 
   const addBodyReading = async ({ weightKg, heightCm }) => {
@@ -112,11 +119,13 @@ export function DataProvider({ children }) {
     setData(d => ({ ...d, profile: profileRes.profile }));
     const res = await readingsApi.addBodyReading({ weightKg }, token);
     setData(d => ({ ...d, body: [res.reading, ...d.body] }));
+    return res.reading;
   };
 
   const addSugarReading = async ({ mgdl, kind }) => {
     const res = await readingsApi.addSugarReading({ mgdl, kind }, token);
     setData(d => ({ ...d, sugar: [res.reading, ...d.sugar] }));
+    return res.reading;
   };
 
   const deleteReading = async (type, id) => {
@@ -166,6 +175,13 @@ export function DataProvider({ children }) {
   const addMedicine = async vals => {
     const res = await medsApi.createMedicine(vals, token);
     setData(d => ({ ...d, meds: [...d.meds, res.medicine] }));
+    return res.medicine;
+  };
+
+  // hard delete — only for undoing a medicine just added by mistake
+  const deleteMedicine = async id => {
+    await medsApi.deleteMedicine(id, token);
+    setData(d => ({ ...d, meds: d.meds.filter(m => m.id !== id) }));
   };
 
   const setMedStatus = async (id, status, reason) => {
@@ -222,6 +238,7 @@ export function DataProvider({ children }) {
     deleteHistory,
     promoteHistoryToMedicine,
     addMedicine,
+    deleteMedicine,
     setMedStatus,
     restockMedicine,
     toggleDoseTaken,
@@ -231,7 +248,9 @@ export function DataProvider({ children }) {
     saveHealth,
   };
 
-  return <DataContext.Provider value={{ data, setData, ready, loading, ...actions }}>{children}</DataContext.Provider>;
+  const loaded = Boolean(token) && loadedToken === token;
+
+  return <DataContext.Provider value={{ data, setData, ready, loading, loaded, ...actions }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

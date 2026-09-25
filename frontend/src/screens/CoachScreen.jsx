@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -11,6 +11,7 @@ import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
+import { useGo } from '../navigation/useGo';
 
 const PROMPTS = [
   'Plan a low-salt day of meals for me',
@@ -53,7 +54,10 @@ export default function CoachScreen() {
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
   const insets = useSafeAreaInsets();
+  const go = useGo();
   const msgs = data.chat;
+  // back to where this person's app starts: Updates for a family viewer, Home otherwise
+  const back = () => go(data.care?.role === 'viewer' ? 'family' : 'home');
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -78,12 +82,25 @@ export default function CoachScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top}>
-      <View style={styles.header}>
+    /* The app runs edge-to-edge, so Android no longer shrinks the window
+       for the keyboard — "padding" is needed on both platforms to keep
+       the message box above it. This screen fills the whole display (no
+       app header or tab bar), so no vertical offset is needed. */
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.h1}>AI coach</Text>
-            <Mono style={{ marginTop: 4 }}>Reads your numbers · food, movement, habits</Mono>
+          <Press onPress={back} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
+            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M15 18l-6-6 6-6" />
+            </Svg>
+          </Press>
+          <View style={styles.titleBlock}>
+            <Text style={styles.h1} numberOfLines={1}>
+              AI coach
+            </Text>
+            <Mono style={styles.subtitle} numberOfLines={1}>
+              Food · movement · habits
+            </Mono>
           </View>
           {msgs.length > 0 && (
             <Press onPress={() => setData(d => ({ ...d, chat: [] }))} style={styles.clearBtn}>
@@ -93,7 +110,7 @@ export default function CoachScreen() {
         </View>
       </View>
 
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.body}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {msgs.length === 0 && (
           <>
             <View style={styles.introCard}>
@@ -136,10 +153,14 @@ export default function CoachScreen() {
             placeholder="Ask about food, exercise or habits"
             placeholderTextColor={C.ink3}
             style={styles.input}
+            multiline
+            maxLength={1000}
+            submitBehavior="submit"
+            returnKeyType="send"
           />
-          <Press onPress={() => send()} disabled={busy || !input.trim()} style={styles.sendBtn}>
+          <Press onPress={() => send()} disabled={busy || !input.trim()} style={styles.sendBtn} accessibilityLabel="Send">
             <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={StyleSheet.absoluteFill} />
-            <Svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <Path d="M12 19V5M5 12l7-7 7 7" />
             </Svg>
           </Press>
@@ -150,12 +171,30 @@ export default function CoachScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.hair },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  h1: { fontFamily: SANS.bold, fontSize: 22, letterSpacing: -0.75, color: C.ink },
-  clearBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 },
+  header: {
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.hair,
+    backgroundColor: 'rgba(244,248,246,0.94)',
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(22,36,28,0.06)',
+    borderWidth: 1,
+    borderColor: C.hair,
+  },
+  titleBlock: { flex: 1, minWidth: 0 },
+  h1: { fontFamily: SANS.bold, fontSize: 22, letterSpacing: -0.6, color: C.ink },
+  subtitle: { marginTop: 2 },
+  clearBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.cardSolid, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
   clearLabel: { fontFamily: SANS.medium, fontSize: 13, letterSpacing: 0.6, textTransform: 'uppercase', color: C.ink2 },
-  body: { padding: 16, paddingBottom: 150 },
+  body: { padding: 16, paddingBottom: 24 },
   introCard: { backgroundColor: C.panelSoft, borderRadius: 18, padding: 18, marginBottom: 14 },
   introText: { fontFamily: SANS.regular, fontSize: 15, color: C.onPanel2, lineHeight: 23 },
   promptBtn: {
@@ -180,19 +219,20 @@ const styles = StyleSheet.create({
   bubbleTextAssistant: { fontFamily: SANS.regular, fontSize: 14.5, lineHeight: 23, color: C.ink2 },
   dotsRow: { flexDirection: 'row', gap: 4, paddingVertical: 6, paddingHorizontal: 4 },
   dot: { width: 6, height: 6, borderRadius: 99, backgroundColor: C.ink3 },
-  inputBar: { paddingHorizontal: 16, paddingTop: 10, backgroundColor: C.paper },
+  inputBar: { paddingHorizontal: 12, paddingTop: 10, backgroundColor: C.paper, borderTopWidth: 1, borderTopColor: C.hair },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 8,
-    backgroundColor: 'rgba(22,36,28,0.04)',
+    backgroundColor: C.cardSolid,
     borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: 16,
+    borderColor: 'rgba(22,36,28,0.18)',
+    borderRadius: 22,
     paddingVertical: 5,
     paddingLeft: 16,
     paddingRight: 5,
   },
-  input: { flex: 1, fontFamily: SANS.regular, fontSize: 15, color: C.ink, paddingVertical: 10 },
-  sendBtn: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  // grows with the message up to ~5 lines, then scrolls
+  input: { flex: 1, fontFamily: SANS.regular, fontSize: 17, lineHeight: 23, color: C.ink, paddingTop: 11, paddingBottom: 11, maxHeight: 130 },
+  sendBtn: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 });

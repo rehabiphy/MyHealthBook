@@ -79,7 +79,7 @@ export async function buildAccountContext(userId) {
   return parts.length ? parts.join('; ') : 'no health data recorded yet';
 }
 
-const SYSTEM_PROMPT = context =>
+export const SYSTEM_PROMPT = context =>
   `You are the AI health coach embedded in the MyHealthBook app. You help with practical advice about food, exercise, sleep and daily habits, tailored to what the user has recorded. You are NOT a doctor: never diagnose, never prescribe or suggest changing a medicine, and encourage seeing a real doctor for anything medical. Keep replies short and practical, and refer to the user's own numbers when relevant.\n\nWhat's on record for this user right now: ${context}.`;
 
 export async function sendMessage(req, res) {

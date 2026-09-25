@@ -30,6 +30,37 @@ function CloseBtn({ onPress }) {
   );
 }
 
+/* Defined here at module level, NOT inside HistoryScreen: a component
+   created inside a render is a brand-new component type on every
+   render, so React unmounts and remounts it — the TextInput lost focus
+   (and the keyboard closed) after every letter typed. */
+function Field({ label, keyName, draft, onChange, multi, placeholder }) {
+  return (
+    <View style={{ marginTop: 18 }}>
+      <Mono>{label}</Mono>
+      <TextInput
+        value={draft[keyName]}
+        onChangeText={t => onChange(keyName, t)}
+        placeholder={placeholder}
+        placeholderTextColor={C.ink3}
+        multiline={multi}
+        numberOfLines={multi ? 3 : 1}
+        style={[styles.fieldInput, multi && styles.fieldInputMulti]}
+      />
+    </View>
+  );
+}
+
+function Line({ k, v }) {
+  if (!v) return null;
+  return (
+    <View style={styles.detailLine}>
+      <Mono>{k}</Mono>
+      <Text style={styles.detailValue}>{v}</Text>
+    </View>
+  );
+}
+
 export default function HistoryScreen() {
   const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine } = useData();
   const ask = useAsk();
@@ -155,20 +186,8 @@ export default function HistoryScreen() {
     }
   };
 
-  const Field = ({ label, keyName, multi, placeholder }) => (
-    <View style={{ marginTop: 18 }}>
-      <Mono>{label}</Mono>
-      <TextInput
-        value={draft[keyName]}
-        onChangeText={t => setDraft({ ...draft, [keyName]: t })}
-        placeholder={placeholder}
-        placeholderTextColor={C.ink3}
-        multiline={multi}
-        numberOfLines={multi ? 3 : 1}
-        style={[styles.fieldInput, multi && styles.fieldInputMulti]}
-      />
-    </View>
-  );
+  // functional update, so fast typing never works from a stale draft
+  const setField = (keyName, t) => setDraft(d => ({ ...d, [keyName]: t }));
 
   /* ── pick a record type ── */
   if (view === 'pick') {
@@ -222,21 +241,21 @@ export default function HistoryScreen() {
               }}
             />
           )}
-          <Field label={TITLE_FOR[k]} keyName="title" placeholder="Required" />
-          <Field label={DETAIL_FOR[k]} keyName="details" multi />
-          <Field label="Doctor" keyName="doctor" />
-          <Field label={draft.type === 'test' ? 'Hospital or laboratory' : 'Hospital or clinic'} keyName="hospital" />
+          <Field label={TITLE_FOR[k]} keyName="title" draft={draft} onChange={setField} placeholder="Required" />
+          <Field label={DETAIL_FOR[k]} keyName="details" draft={draft} onChange={setField} multi />
+          <Field label="Doctor" keyName="doctor" draft={draft} onChange={setField} />
+          <Field label={draft.type === 'test' ? 'Hospital or laboratory' : 'Hospital or clinic'} keyName="hospital" draft={draft} onChange={setField} />
           {['treatment', 'diagnosis', 'procedure', 'other'].includes(k) && (
             <>
               <View style={styles.medSectionHeader}>
                 <Mono>Medicine prescribed then — optional</Mono>
                 <Text style={styles.medSectionHint}>This is recorded as history. It does not become a medicine you are taking now.</Text>
               </View>
-              <Field label="Medicine name" keyName="medName" />
-              <Field label="Dose" keyName="medDose" placeholder="1 tablet" />
+              <Field label="Medicine name" keyName="medName" draft={draft} onChange={setField} />
+              <Field label="Dose" keyName="medDose" draft={draft} onChange={setField} placeholder="1 tablet" />
             </>
           )}
-          <Field label="Notes" keyName="notes" multi />
+          <Field label="Notes" keyName="notes" draft={draft} onChange={setField} multi />
           <View style={{ marginTop: 18 }}>
             <Mono>Report</Mono>
             <Press onPress={pickFile} style={styles.filePicker}>
@@ -260,13 +279,6 @@ export default function HistoryScreen() {
       return null;
     }
     const t = typeOf(r.type);
-    const Line = ({ k, v }) =>
-      v ? (
-        <View style={styles.detailLine}>
-          <Mono>{k}</Mono>
-          <Text style={styles.detailValue}>{v}</Text>
-        </View>
-      ) : null;
     return (
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
         <Head

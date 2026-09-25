@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import Svg, { Path } from 'react-native-svg';
@@ -17,7 +17,12 @@ export default function TopHeader({ data, onPressBell, onPressLearn }) {
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 13 }]}>
-      <BlurView style={StyleSheet.absoluteFill} blurAmount={18} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.paper} />
+      {/* Android: solid frosted fill instead of a live blur — see TabBar.jsx for why */}
+      {Platform.OS === 'ios' ? (
+        <BlurView style={StyleSheet.absoluteFill} blurAmount={18} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.paper} />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, styles.frosted]} />
+      )}
       <View style={styles.row}>
         <GradientText style={styles.appName}>{APP_NAME}</GradientText>
         <View style={styles.iconRow}>
@@ -45,6 +50,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.hair,
     overflow: 'hidden',
   },
+  frosted: { backgroundColor: 'rgba(241,248,244,0.96)' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   appName: { fontFamily: SANS.bold, fontSize: 18, letterSpacing: -0.55 },

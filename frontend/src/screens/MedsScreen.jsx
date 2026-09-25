@@ -1,24 +1,10 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Svg, { Path, Rect } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
-import {
-  SLOTS,
-  activeMeds,
-  adherence,
-  daysLeft,
-  dailyUnits,
-  dosesToday,
-  isTaken,
-  prettyTime,
-  refillColor,
-  refillLabel,
-  REFILL_ALERT_DAYS,
-  unitsLeft,
-} from '../lib/meds';
+import { SLOTS, activeMeds, adherence, dayKey, dosesToday, prettyTime, slotOf } from '../lib/meds';
 import { fmtDay } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
@@ -29,7 +15,7 @@ import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
 import Seg from '../components/atoms/Seg';
 import Press from '../components/atoms/Press';
-import DoseCheckbox from '../components/atoms/DoseCheckbox';
+import MedicineDoseCard from '../components/meds/MedicineDoseCard';
 import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -44,8 +30,7 @@ export default function MedsScreen() {
   const [perDose, setPerDose] = useState('1');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [restock, setRestock] = useState(null);
-  const [restockQty, setRestockQty] = useState('');
+  const [busy, setBusy] = useState([]); // dose ids with a save in flight — blocks double taps
   const [timePickerFor, setTimePickerFor] = useState(null);
   const [note, setNote] = useState('');
 
@@ -122,28 +107,46 @@ export default function MedsScreen() {
     }
   };
 
-  const saveRestock = async id => {
-    const qty = +restockQty;
-    if (!qty || qty <= 0) return;
+  const saveRestock = async (id, qty) => {
     try {
       await restockMedicine(id, qty);
-      setRestock(null);
-      setRestockQty('');
       say('Stock updated');
     } catch (err) {
       say(err.message);
     }
   };
 
-  const toggleTaken = async doseId => {
+  /* Marking is one tap. Undoing asks first — a dose record shouldn't
+     disappear because a thumb brushed the screen. */
+  const toggleTaken = async (dose, wasTaken) => {
+    if (busy.includes(dose.id)) return;
+    if (wasTaken) {
+      const ok = await ask({
+        title: `Undo ${dose.med.name}?`,
+        body: `Mark the ${slotOf(dose.slot).label.toLowerCase()} dose as not taken today.`,
+        confirmLabel: 'Yes, undo',
+        cancelLabel: 'Keep as taken',
+      });
+      if (!ok) return;
+    }
+    setBusy(b => [...b, dose.id]);
     try {
-      await toggleDoseTaken(doseId);
+      // no success banner: it would push the cards down mid-tap; the button itself turns green / back
+      await toggleDoseTaken(dose.id);
     } catch (err) {
       say(err.message);
+    } finally {
+      setBusy(b => b.filter(x => x !== dose.id));
     }
   };
 
-  const grouped = SLOTS.map(s => ({ slot: s, items: doses.filter(d => d.slot === s.key) })).filter(g => g.items.length);
+  // one card per active medicine, ordered by its earliest dose of the day
+  const takenToday = data.taken?.[dayKey()] || {};
+  const medCards = activeMeds(data)
+    .map(med => ({ med, doses: doses.filter(d => d.med.id === med.id) }))
+    .filter(x => x.doses.length)
+    .sort((a, b) => a.doses[0].minutes - b.doses[0].minutes);
+  const takenCount = doses.filter(d => takenToday[d.id]).length;
 
   const timeToDate = t => {
     const [h, m] = String(t || '00:00').split(':').map(Number);
@@ -177,45 +180,34 @@ export default function MedsScreen() {
         </View>
       ) : null}
 
-      {grouped.length > 0 && (
-        <View style={{ marginTop: 16 }}>
-          {grouped.map(({ slot, items }) => (
-            <View key={slot.key} style={{ marginBottom: 12 }}>
-              <View style={styles.slotHeaderRow}>
-                <Mono>{slot.label}</Mono>
-                <Mono>{prettyTime(times[slot.key])}</Mono>
-              </View>
-              {items.map(d => {
-                const done = isTaken(data, d.id);
-                return (
-                  <View key={d.id} style={styles.doseRow}>
-                    <View style={styles.doseLeft}>
-                      <DoseCheckbox done={done} onPress={() => toggleTaken(d.id)} />
-                      <View style={{ minWidth: 0, flex: 1 }}>
-                        <Text style={[styles.doseName, done && styles.doseNameDone]} numberOfLines={1}>
-                          {d.med.name}
-                        </Text>
-                        {d.med.dose ? <Mono style={{ marginTop: 2 }}>{d.med.dose}</Mono> : null}
-                      </View>
-                    </View>
-                    <View style={styles.doseActions}>
-                      <Press onPress={() => setStatus(d.med.id, 'paused')} style={{ padding: 8 }} accessibilityLabel="pause">
-                        <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2" strokeLinecap="round">
-                          <Path d="M9 5v14M15 5v14" />
-                        </Svg>
-                      </Press>
-                      <Press onPress={() => setStatus(d.med.id, 'discontinued')} style={{ padding: 8 }} accessibilityLabel="stop this medicine">
-                        <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="1.8" strokeLinecap="round">
-                          <Rect x="6" y="6" width="12" height="12" rx="2" />
-                        </Svg>
-                      </Press>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
-        </View>
+      {medCards.length > 0 && (
+        <>
+          <View style={styles.todayRow}>
+            <Text style={styles.todayTitle}>Today</Text>
+            <Text style={[styles.todayCount, takenCount === doses.length && { color: C.normal }]}>
+              {takenCount === doses.length ? '✓ All doses taken' : `${takenCount} of ${doses.length} doses taken`}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${doses.length ? Math.round((takenCount / doses.length) * 100) : 0}%` }]} />
+          </View>
+
+          <View style={{ marginTop: 14 }}>
+            {medCards.map(({ med, doses: medDoses }) => (
+              <MedicineDoseCard
+                key={med.id}
+                med={med}
+                doses={medDoses}
+                takenToday={takenToday}
+                busy={busy}
+                onToggle={toggleTaken}
+                onPause={() => setStatus(med.id, 'paused')}
+                onStop={() => setStatus(med.id, 'discontinued')}
+                onRestock={qty => saveRestock(med.id, qty)}
+              />
+            ))}
+          </View>
+        </>
       )}
 
       {adding ? (
@@ -341,65 +333,6 @@ export default function MedsScreen() {
         </Card>
       )}
 
-      {activeMeds(data).length > 0 && (
-        <Card style={{ marginTop: 10 }}>
-          <Mono>Stock and refills</Mono>
-          {activeMeds(data).map(m => {
-            const dl = daysLeft(m);
-            const left = unitsLeft(m);
-            const low = dl != null && dl <= REFILL_ALERT_DAYS;
-            return (
-              <View key={m.id} style={styles.stockItem}>
-                <View style={styles.stockRowTop}>
-                  <View style={{ minWidth: 0, flex: 1 }}>
-                    <Text style={styles.stockName} numberOfLines={1}>
-                      {m.name}
-                    </Text>
-                    {dl == null ? (
-                      <Mono style={{ marginTop: 3 }}>No stock tracked</Mono>
-                    ) : (
-                      <View style={styles.stockStatusRow}>
-                        <View style={[styles.stockDot, { backgroundColor: low ? refillColor(dl) : C.normal }]} />
-                        <Text style={[styles.stockLabel, { color: low ? refillColor(dl) : C.ink2 }]}>{refillLabel(dl)}</Text>
-                        <Mono>
-                          ≈ {left} left · {dailyUnits(m)}/day
-                        </Mono>
-                      </View>
-                    )}
-                  </View>
-                  <Press
-                    onPress={() => {
-                      setRestock(restock === m.id ? null : m.id);
-                      setRestockQty('');
-                    }}
-                    style={styles.stockBtn}>
-                    <Text style={styles.stockBtnLabel}>{dl == null ? 'Set stock' : 'Bought more'}</Text>
-                  </Press>
-                </View>
-                {restock === m.id && (
-                  <View style={styles.restockRow}>
-                    <TextInput
-                      value={restockQty}
-                      onChangeText={t => setRestockQty(t.replace(/\D/g, '').slice(0, 4))}
-                      keyboardType="number-pad"
-                      autoFocus
-                      placeholder="How many tablets now?"
-                      placeholderTextColor={C.ink3}
-                      onSubmitEditing={() => saveRestock(m.id)}
-                      style={styles.restockInput}
-                    />
-                    <Press onPress={() => saveRestock(m.id)} disabled={!restockQty} style={styles.restockSave}>
-                      <Text style={styles.restockSaveLabel}>Save</Text>
-                    </Press>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-          <Text style={styles.hintText}>Counted down by the calendar from the day you set the stock, so it stays honest even if you forget to tick a dose.</Text>
-        </Card>
-      )}
-
       <Card style={{ marginTop: 10 }}>
         <Mono>Reminders</Mono>
         <View style={{ marginTop: 14 }}>
@@ -437,23 +370,11 @@ const styles = StyleSheet.create({
   adhPct: { fontFamily: SANS.bold, fontSize: 26, letterSpacing: -1, color: C.ink },
   noteBanner: { marginTop: 14, backgroundColor: C.panelSoft, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16 },
   noteText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.onPanel2 },
-  slotHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 8 },
-  doseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-    marginBottom: 6,
-  },
-  doseLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 },
-  doseName: { fontFamily: SANS.semibold, fontSize: 15.5, letterSpacing: -0.3, color: C.ink },
-  doseNameDone: { color: C.ink3, textDecorationLine: 'line-through' },
-  doseActions: { flexDirection: 'row', gap: 4, flexShrink: 0 },
+  todayRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 20, paddingHorizontal: 4 },
+  todayTitle: { fontFamily: SANS.bold, fontSize: 20, letterSpacing: -0.5, color: C.ink },
+  todayCount: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2 },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(22,36,28,0.08)', marginTop: 10, marginHorizontal: 4, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: C.brand },
   nameInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.semibold, fontSize: 20, color: C.ink },
   doseInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.medium, fontSize: 16, color: C.ink },
   stockRow: { flexDirection: 'row', gap: 14, marginTop: 18 },
@@ -469,17 +390,5 @@ const styles = StyleSheet.create({
   inactiveName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2, letterSpacing: -0.3 },
   restartBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
   restartLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
-  stockItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
-  stockRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  stockName: { fontFamily: SANS.semibold, fontSize: 15, letterSpacing: -0.3, color: C.ink },
-  stockStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
-  stockDot: { width: 7, height: 7, borderRadius: 99 },
-  stockLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
-  stockBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, flexShrink: 0 },
-  stockBtnLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
-  restockRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  restockInput: { flex: 1, borderWidth: 1, borderColor: C.hair, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 13, fontFamily: SANS.regular, fontSize: 15, color: C.ink, backgroundColor: C.card },
-  restockSave: { backgroundColor: C.panel, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 16 },
-  restockSaveLabel: { fontFamily: SANS.semibold, fontSize: 14, color: C.onPanel },
   importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

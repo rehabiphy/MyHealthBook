@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import LinearGradient from 'react-native-linear-gradient';
@@ -76,12 +76,22 @@ export default function TabBar({ activeKey, onNavigate }) {
           not — so nothing near it is ever sharp. */}
       <LinearGradient
         pointerEvents="none"
-        colors={['rgba(244,248,246,0)', 'rgba(244,248,246,0.85)', 'rgba(244,248,246,0.97)']}
+        // same pale mint as the bottom of AmbientBackground, so the fade reads as the page, not a grey band
+        colors={['rgba(238,248,242,0)', 'rgba(238,248,242,0.85)', 'rgba(238,248,242,0.97)']}
         locations={[0, 0.55, 1]}
         style={styles.fade}
       />
-      <View style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) + 10 }]}>
-        <BlurView style={StyleSheet.absoluteFill} blurAmount={24} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.cardSolid} />
+      <View style={[styles.wrap, Platform.OS === 'android' && styles.wrapAndroid, { bottom: Math.max(insets.bottom, 12) + 10 }]}>
+        {/* Live blur is cheap on iOS (a system effect) but on Android it
+            re-captures and blurs the screen on every frame — while
+            scrolling, and whenever anything animates — which made every
+            page scroll laggy. Android gets a solid white-to-mint surface
+            with a soft green-tinted shadow instead, so it still floats. */}
+        {Platform.OS === 'ios' ? (
+          <BlurView style={StyleSheet.absoluteFill} blurAmount={24} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.cardSolid} />
+        ) : (
+          <LinearGradient colors={['#FFFFFF', '#F0FAF4']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+        )}
         <View style={styles.row}>
           {navTabs.map(t => {
             const on = activeKey === t.key || (t.key === 'home' && activeKey === 'health');
@@ -124,6 +134,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 6,
     overflow: 'hidden',
+  },
+  wrapAndroid: {
+    borderColor: 'rgba(22,163,74,0.16)',
+    backgroundColor: '#FFFFFF', // elevation needs an opaque background to cast its shadow
+    elevation: 12,
+    shadowColor: '#16A34A',
   },
   row: { flexDirection: 'row', gap: 4 },
   tabBtn: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },

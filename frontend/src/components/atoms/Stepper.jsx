@@ -5,11 +5,31 @@ import { SANS } from '../../theme/typography';
 import { clamp } from '../../lib/calc';
 import Mono from './Mono';
 
+/* Module-level on purpose: defined inside Stepper it became a new
+   component type on every render, so the first step (which re-renders)
+   replaced the button under the user's finger — onPressOut never
+   reached it and the hold-to-run timer was never stopped. */
+function KeyBtn({ sym, label, onPressIn, onPressOut }) {
+  return (
+    <Pressable
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      hitSlop={6}
+      style={({ pressed }) => [styles.keyBtn, pressed && styles.keyBtnPressed]}
+      accessibilityLabel={label}>
+      <Text style={styles.keySym}>{sym}</Text>
+    </Pressable>
+  );
+}
+
 /* Stepper — hold the +/- keys to run, or tap the number and type it.
    decimals: 0 for whole units (mmHg, cm), 1 for weight. */
 export default function Stepper({ label, unit, value, set, step = 1, min, max, decimals = 0 }) {
   const hold = useRef(null);
   const inputRef = useRef(null);
+  // the hold-to-run timer outlives renders, so it reads the latest value from here, not a stale closure
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -23,7 +43,11 @@ export default function Stepper({ label, unit, value, set, step = 1, min, max, d
     }
   }, [editing]);
 
-  const bump = d => set(round((+value || min) + d));
+  const bump = d => {
+    const next = round((+valueRef.current || min) + d);
+    valueRef.current = next; // so the next repeat steps on from here even before the re-render lands
+    set(next);
+  };
   const start = d => {
     stop();
     bump(d);
@@ -56,17 +80,6 @@ export default function Stepper({ label, unit, value, set, step = 1, min, max, d
     return v.slice(0, decimals ? 5 : 3);
   };
 
-  const KeyBtn = ({ d, sym }) => (
-    <Pressable
-      onPressIn={() => start(d)}
-      onPressOut={stop}
-      hitSlop={6}
-      style={({ pressed }) => [styles.keyBtn, pressed && styles.keyBtnPressed]}
-      accessibilityLabel={d < 0 ? `decrease ${label}` : `increase ${label}`}>
-      <Text style={styles.keySym}>{sym}</Text>
-    </Pressable>
-  );
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -75,7 +88,7 @@ export default function Stepper({ label, unit, value, set, step = 1, min, max, d
       </View>
 
       <View style={styles.valueRow}>
-        <KeyBtn d={-step} sym="−" />
+        <KeyBtn sym="−" label={`decrease ${label}`} onPressIn={() => start(-step)} onPressOut={stop} />
 
         <Pressable onPress={() => !editing && open()} style={[styles.numberWrap, editing && styles.numberWrapEditing]}>
           {editing ? (
@@ -95,7 +108,7 @@ export default function Stepper({ label, unit, value, set, step = 1, min, max, d
           <Mono style={styles.unit}>{unit}</Mono>
         </Pressable>
 
-        <KeyBtn d={step} sym="+" />
+        <KeyBtn sym="+" label={`increase ${label}`} onPressIn={() => start(step)} onPressOut={stop} />
       </View>
     </View>
   );

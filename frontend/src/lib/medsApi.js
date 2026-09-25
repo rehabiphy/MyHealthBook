@@ -6,6 +6,8 @@ export const createMedicine = (fields, token) => apiRequest('/api/meds', { body:
 
 export const setMedicineStatus = (id, status, reason, token) => apiRequest(`/api/meds/${id}/status`, { method: 'PATCH', body: { status, reason }, token });
 
+export const deleteMedicine = (id, token) => apiRequest(`/api/meds/${id}`, { method: 'DELETE', token });
+
 export const restockMedicine = (id, qty, token) => apiRequest(`/api/meds/${id}/restock`, { method: 'PATCH', body: { qty }, token });
 
 export const getTaken = ({ from, to } = {}, token) =>

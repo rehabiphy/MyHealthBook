@@ -107,7 +107,7 @@ export const activeMeds = data => data.meds.filter(m => (m.status || 'active') =
    In-app only — no OS-level scheduled notification, matching the app's
    current behaviour (a real background alarm is future work). */
 export function useReminders(data) {
-  const [state, setState] = useState({ doses: [], refills: [] });
+  const [state, setState] = useState({ doses: [], refills: [], sig: '' });
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -122,7 +122,9 @@ export function useReminders(data) {
         return nowMin >= dose.minutes - lead && nowMin <= dose.minutes + 90;
       });
       const refills = refillsDue(d);
-      setState({ doses, refills });
+      // only re-render when something actually changed — a fresh object every 20s re-rendered the whole app shell
+      const sig = `${doses.map(x => x.id).join()}#${refills.map(r => `${r.med.id}:${r.days}`).join()}`;
+      setState(prev => (prev.sig === sig ? prev : { doses, refills, sig }));
     };
     tick();
     const id = setInterval(tick, 20000);

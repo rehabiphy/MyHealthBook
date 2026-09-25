@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
 import { C } from '../../theme/colors';
 
@@ -13,6 +13,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
    just looking like a flat green-tinted box. Fades/rises in on mount
    and scales down 0.97 on press, like the original `.rise`/`.press`
    classes.
+
+   iOS only — Android draws the wash without blur (see below).
 
    `autoUpdate={false}`: Card renders many times per screen (Home alone
    has ~7), and a continuously re-blurring instance per card is real
@@ -42,8 +44,15 @@ export default function Card({ children, style, onClick, onPress, delay = 0, ove
 
   const inner = (
     <>
-      {blur ? (
+      {blur && Platform.OS === 'ios' ? (
         <BlurView style={StyleSheet.absoluteFill} blurAmount={blurAmount} autoUpdate={false} overlayColor={overlayColor} reducedTransparencyFallbackColor={C.cardSolid} />
+      ) : blur ? (
+        /* Android: the same translucent wash, without the blur. Its blur
+           library ignores autoUpdate={false} and re-blurred every visible
+           card on every scroll frame — measured 96.8% janky frames on
+           Home, 1.4% without. What's behind a card is the smooth ambient
+           gradient, so blurring it changed nothing you could see. */
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
       ) : (
         // Real blur needs a native snapshot of what's behind it — inside a
         // <Modal> that's a separate native window, so on some Android

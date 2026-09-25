@@ -11,6 +11,16 @@ import TabBar from './TabBar';
 import TopHeader from './TopHeader';
 import DoseBanner from './DoseBanner';
 import AuthStack from './AuthStack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useReminders } from '../lib/meds';
+import AssistantOrb from '../components/assistant/AssistantOrb';
+import AssistantOverlay from '../components/assistant/AssistantOverlay';
+import useLaunchGreeting from '../lib/assistant/useLaunchGreeting';
+import CoachFab from '../components/assistant/CoachFab';
+
+const COACH_FAB = 56;
+const FAB_GAP = 14;
+import { displayName } from '../lib/appName';
 
 import HomeScreen from '../screens/HomeScreen';
 import LogScreen from '../screens/LogScreen';
@@ -81,9 +91,22 @@ function AuthGate({ navigationRef, activeKey }) {
 
 function RootShell({ navigationRef, activeKey }) {
   const { data } = useData();
+  const insets = useSafeAreaInsets();
+  const reminders = useReminders(data);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const { user } = useAuth();
+  const { loaded } = useData();
+  useLaunchGreeting(displayName(data.profile, user), loaded);
 
   const isViewer = data.care?.role === 'viewer';
   const go = key => navigationRef.navigate(key);
+
+  /* Same condition DoseBanner renders under — the orb lifts above it
+     rather than covering its "Taken" button. */
+  const bannerShown =
+    !isViewer && activeKey !== 'meds' && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && (reminders.doses.length > 0 || reminders.refills.length > 0);
+  const showOrb = !isViewer && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout';
+  const fabBase = Math.max(insets.bottom, 12) + (bannerShown ? 178 : 100);
 
   return (
     <View style={styles.root}>
@@ -108,9 +131,21 @@ function RootShell({ navigationRef, activeKey }) {
           <Tab.Screen name="premiumCheckout" component={CheckoutScreen} />
           <Tab.Screen name="insights" component={InsightsScreen} />
         </Tab.Navigator>
-        <TabBar activeKey={activeKey} onNavigate={go} />
+        {/* The coach chat is a full-screen page with its own back button —
+            the floating bar and the dose banner would sit on top of its
+            message box. */}
+        {activeKey !== 'coach' && <TabBar activeKey={activeKey} onNavigate={go} />}
       </View>
-      {!isViewer && activeKey !== 'meds' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && <DoseBanner data={data} go={go} />}
+      {!isViewer && activeKey !== 'meds' && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && <DoseBanner data={data} go={go} />}
+      {/* Bottom-right stack: AI coach chat in the corner, the MyHealth AI
+          voice orb directly above it. */}
+      {showOrb && (
+        <>
+          <CoachFab onPress={() => go('coach')} style={[styles.coachFab, { bottom: fabBase }]} />
+          <AssistantOrb onPress={() => setAssistantOpen(true)} style={[styles.orb, { bottom: fabBase + COACH_FAB + FAB_GAP }]} />
+        </>
+      )}
+      <AssistantOverlay visible={assistantOpen} onClose={() => setAssistantOpen(false)} go={go} />
     </View>
   );
 }
@@ -119,4 +154,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   loadingText: { fontSize: 14 },
+  // orb (64) and chat button (56) share a centre line on the right edge
+  orb: { position: 'absolute', right: 18, zIndex: 50 },
+  coachFab: { position: 'absolute', right: 22, zIndex: 50 },
 });

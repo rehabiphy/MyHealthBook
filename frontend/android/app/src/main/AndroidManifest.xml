@@ -2,6 +2,20 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- MyHealth AI voice commands -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ package visibility: without this the app can't see
+         the system speech recognizer and voice input reports unavailable. -->
+    <queries>
+      <intent>
+        <action android:name="android.speech.RecognitionService" />
+      </intent>
+      <!-- …and the text-to-speech engine, for the spoken greeting -->
+      <intent>
+        <action android:name="android.intent.action.TTS_SERVICE" />
+      </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"
