@@ -1,5 +1,4 @@
 import Profile from '../models/Profile.js';
-import { isOneOf } from '../utils/validators.js';
 
 const PROFILE_FIELDS = ['name', 'age', 'sex', 'heightCm', 'diet', 'docPhone', 'docEmail'];
 
@@ -15,7 +14,6 @@ function publicProfile(doc) {
       docEmail: doc.docEmail,
     },
     health: doc.health,
-    care: doc.care,
   };
 }
 
@@ -40,21 +38,6 @@ export async function updateProfile(req, res) {
     new: true,
     setDefaultsOnInsert: true,
   });
-  return res.json({ success: true, ...publicProfile(profile) });
-}
-
-export async function setCareRole(req, res) {
-  const { role } = req.body || {};
-
-  if (!isOneOf(role, ['logger', 'viewer'])) {
-    return res.status(400).json({ success: false, message: 'Invalid role' });
-  }
-
-  const profile = await Profile.findOneAndUpdate(
-    { userId: req.user.id },
-    { 'care.role': role },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
   return res.json({ success: true, ...publicProfile(profile) });
 }
 

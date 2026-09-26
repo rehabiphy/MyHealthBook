@@ -5,6 +5,10 @@ import { monoCaption } from '../../theme/typography';
 
 /* The small uppercase mono caption used for labels, timestamps and
    units throughout the app — its signature typographic voice. */
-export default function Mono({ children, style }) {
-  return <Text style={[monoCaption, { color: C.ink3 }, style]}>{children}</Text>;
+export default function Mono({ children, style, ...rest }) {
+  return (
+    <Text style={[monoCaption, { color: C.ink3 }, style]} {...rest}>
+      {children}
+    </Text>
+  );
 }

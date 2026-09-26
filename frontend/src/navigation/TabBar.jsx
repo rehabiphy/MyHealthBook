@@ -6,13 +6,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import { C } from '../theme/colors';
 import { GRAD } from '../theme/gradients';
 import { MONO } from '../theme/typography';
-import { useData } from '../state/DataContext';
 import Ico from '../components/icons/NavIcons';
 import Press from '../components/atoms/Press';
 
-/* Today · Records · [+] · Medicines · Profile for the person logging
-   readings; Updates · Coach · Learn · Profile for the family member
-   who only receives the weekly summary. */
 const TABS = [
   { key: 'home', label: 'Home' },
   { key: 'log', label: 'Readings' },
@@ -21,12 +17,8 @@ const TABS = [
   { key: 'me', label: 'Profile' },
 ];
 
-const VIEWER_TABS = [
-  { key: 'family', label: 'Updates' },
-  { key: 'coach', label: 'Coach' },
-  { key: 'learn', label: 'Learn' },
-  { key: 'me', label: 'Profile' },
-];
+// routes without a button of their own light up the tab they're reached from
+const PARENT_TAB = { health: 'home', family: 'me', familyMember: 'me' };
 
 /* A floating glass pill, like iOS's tab bar — inset from all four
    edges (rather than flush with the screen) with a fully rounded
@@ -60,10 +52,7 @@ export function useTabBarClearance() {
 }
 
 export default function TabBar({ activeKey, onNavigate }) {
-  const { data } = useData();
   const insets = useSafeAreaInsets();
-  const isViewer = data.care?.role === 'viewer';
-  const navTabs = isViewer ? VIEWER_TABS : TABS;
 
   return (
     <>
@@ -93,8 +82,8 @@ export default function TabBar({ activeKey, onNavigate }) {
           <LinearGradient colors={['#FFFFFF', '#F0FAF4']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
         )}
         <View style={styles.row}>
-          {navTabs.map(t => {
-            const on = activeKey === t.key || (t.key === 'home' && activeKey === 'health');
+          {TABS.map(t => {
+            const on = activeKey === t.key || PARENT_TAB[activeKey] === t.key;
             return (
               <Press key={t.key} onPress={() => onNavigate(t.key)} style={styles.tabBtn}>
                 {on ? (

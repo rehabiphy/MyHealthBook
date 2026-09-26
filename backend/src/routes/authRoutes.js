@@ -13,6 +13,8 @@ import {
   forgotPasswordReset,
   registerFcmToken,
   removeFcmToken,
+  checkUsername,
+  setUsername,
 } from '../controllers/authController.js';
 import { googleSignIn } from '../controllers/googleAuthController.js';
 
@@ -25,6 +27,8 @@ router.post('/register', catchAsync(register));
 router.post('/login', catchAsync(login));
 router.post('/google', catchAsync(googleSignIn));
 router.get('/me', requireAuth, catchAsync(getMe));
+router.get('/username-available', catchAsync(checkUsername));
+router.patch('/username', requireAuth, catchAsync(setUsername));
 router.post('/fcm-token', requireAuth, catchAsync(registerFcmToken));
 router.delete('/fcm-token', requireAuth, catchAsync(removeFcmToken));
 

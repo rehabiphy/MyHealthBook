@@ -2,7 +2,11 @@ import { apiRequest } from './apiClient';
 
 export const getMedicines = token => apiRequest('/api/meds', { method: 'GET', token });
 
-export const createMedicine = (fields, token) => apiRequest('/api/meds', { body: fields, token });
+/* Reference list of ~254k Indian medicines, searched and paged server-side. */
+export const searchMedicineCatalog = ({ q = '', page = 1, limit = 20 } = {}, token) =>
+  apiRequest(`/api/meds/catalog?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, { method: 'GET', token });
+
+export const createMedicine =(fields, token) => apiRequest('/api/meds', { body: fields, token });
 
 export const setMedicineStatus = (id, status, reason, token) => apiRequest(`/api/meds/${id}/status`, { method: 'PATCH', body: { status, reason }, token });
 

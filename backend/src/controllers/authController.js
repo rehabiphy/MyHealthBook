@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import EmailVerification from '../models/EmailVerification.js';
 import PasswordResetOtp from '../models/PasswordResetOtp.js';
 import { sendOtpEmail, sendVerificationLinkEmail } from '../utils/mailer.js';
-import { isValidEmail, isNonEmptyString, isValidPhone, isValidPassword } from '../utils/validators.js';
+import { isValidEmail, isNonEmptyString, isValidPhone, isValidPassword, isValidUsername, normalizeUsername, USERNAME_RULES } from '../utils/validators.js';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -30,6 +30,7 @@ function publicUser(user) {
   return {
     id: user._id.toString(),
     name: user.name,
+    username: user.username || null,
     email: user.email,
     phone: user.phone,
     isEmailVerified: user.isEmailVerified,
@@ -134,11 +135,49 @@ export async function checkVerificationStatus(req, res) {
   return res.json({ success: true, verified: record.verified });
 }
 
+const isDuplicateUsername = err => err?.code === 11000 && (err.keyPattern?.username || /username/.test(err.message));
+
+/* GET /api/auth/username-available?username=parth.p — public, so the
+   registration form can check as the user types. */
+export async function checkUsername(req, res) {
+  const username = normalizeUsername(req.query.username);
+  if (!isValidUsername(username)) {
+    return res.json({ success: true, username, available: false, message: USERNAME_RULES });
+  }
+  const taken = await User.exists({ username });
+  return res.json({ success: true, username, available: !taken, message: taken ? 'That username is taken' : '' });
+}
+
+/* PATCH /api/auth/username — for accounts created before usernames
+   existed (and Google sign-ups), which pick one on their next login. */
+export async function setUsername(req, res) {
+  const username = normalizeUsername(req.body?.username);
+  if (!isValidUsername(username)) {
+    return res.status(400).json({ success: false, message: USERNAME_RULES });
+  }
+  try {
+    const user = await User.findByIdAndUpdate(req.user.id, { username }, { new: true, runValidators: true });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    return res.json({ success: true, user: publicUser(user) });
+  } catch (err) {
+    if (isDuplicateUsername(err)) {
+      return res.status(409).json({ success: false, message: 'That username is taken' });
+    }
+    throw err;
+  }
+}
+
 export async function register(req, res) {
   const { name, email, phone, password } = req.body || {};
+  const username = normalizeUsername(req.body?.username);
 
   if (!isNonEmptyString(name, { max: 100 })) {
     return res.status(400).json({ success: false, message: 'Please enter your full name' });
+  }
+  if (!isValidUsername(username)) {
+    return res.status(400).json({ success: false, message: USERNAME_RULES });
   }
   if (!isValidEmail(email)) {
     return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
@@ -162,14 +201,28 @@ export async function register(req, res) {
     return res.status(409).json({ success: false, message: 'An account with this email already exists' });
   }
 
+  if (await User.exists({ username })) {
+    return res.status(409).json({ success: false, message: 'That username is taken' });
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
-    phone: phone.trim(),
-    passwordHash,
-    isEmailVerified: true,
-  });
+  let user;
+  try {
+    user = await User.create({
+      name: name.trim(),
+      username,
+      email: normalizedEmail,
+      phone: phone.trim(),
+      passwordHash,
+      isEmailVerified: true,
+    });
+  } catch (err) {
+    // two sign-ups racing for the same name — the unique index is the real check
+    if (isDuplicateUsername(err)) {
+      return res.status(409).json({ success: false, message: 'That username is taken' });
+    }
+    throw err;
+  }
 
   await EmailVerification.deleteOne({ _id: verification._id });
 

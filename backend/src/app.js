@@ -11,6 +11,7 @@ import coachRoutes from './routes/coachRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import insightsRoutes from './routes/insightsRoutes.js';
 import assistantRoutes from './routes/assistantRoutes.js';
+import familyRoutes from './routes/familyRoutes.js';
 import { performEmailVerification } from './controllers/authController.js';
 import './utils/firebaseAdmin.js';
 
@@ -70,6 +71,7 @@ app.use('/api/coach', coachRoutes);
 app.use('/api/payments', express.urlencoded({ extended: true }), paymentRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/family', familyRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not found' }));
 

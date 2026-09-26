@@ -6,7 +6,11 @@ export const verifyEmail = ({ email, token }) => apiRequest('/api/auth/verify-em
 
 export const checkVerificationStatus = ({ email }) => apiRequest('/api/auth/verification-status', { body: { email } });
 
-export const register = ({ name, email, phone, password }) => apiRequest('/api/auth/register', { body: { name, email, phone, password } });
+export const register = ({ name, username, email, phone, password }) => apiRequest('/api/auth/register', { body: { name, username, email, phone, password } });
+
+export const checkUsername = username => apiRequest(`/api/auth/username-available?username=${encodeURIComponent(username)}`, { method: 'GET' });
+
+export const setUsername = (username, token) => apiRequest('/api/auth/username', { method: 'PATCH', body: { username }, token });
 
 export const login = ({ email, password }) => apiRequest('/api/auth/login', { body: { email, password } });
 

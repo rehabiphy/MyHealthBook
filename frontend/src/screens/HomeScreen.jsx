@@ -5,7 +5,6 @@ import { SANS } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
 import { BANDS, bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime } from '../lib/calc';
 import { dosesToday, isTaken, prettyTime, slotOf } from '../lib/meds';
-import { weeklyDue } from '../lib/family';
 import { displayName, greeting } from '../lib/appName';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
@@ -232,12 +231,6 @@ export default function HomeScreen() {
       <View style={styles.sectionPad}>
         <Label>Your health</Label>
       </View>
-      {weeklyDue(data) && (
-        <Card style={{ marginBottom: 10 }} onPress={() => go('me')}>
-          <Mono style={{ color: C.brand }}>Weekly update ready</Mono>
-          <Text style={styles.weeklyTitle}>Send this week to {data.care.circle.filter(m => m.weekly).map(m => m.name).join(', ')}</Text>
-        </Card>
-      )}
       <View style={styles.row}>
         <Card style={{ flex: 1, padding: 18 }} onPress={() => go('health')}>
           <Mono>Health summary</Mono>
@@ -297,6 +290,5 @@ const styles = StyleSheet.create({
   trendCat: { fontFamily: SANS.semibold, fontSize: 14 },
   // no colour override here on purpose — these read as the same neutral glass as every
   // other card, with green carried only by the "Weekly update"/"AI coach" label text
-  weeklyTitle: { fontFamily: SANS.semibold, fontSize: 16, letterSpacing: -0.4, marginTop: 7, color: C.ink },
   linkTitle: { fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, marginTop: 9, lineHeight: 21, color: C.ink },
 });

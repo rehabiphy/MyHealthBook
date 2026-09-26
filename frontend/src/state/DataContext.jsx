@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { SLOTS, dayKey } from '../lib/meds';
 import * as readingsApi from '../lib/readingsApi';
@@ -16,7 +16,6 @@ export const EMPTY = {
   taken: {},
   health: { conditions: [], allergies: '', bloodGroup: '', upcoming: [] },
   history: [],
-  care: { role: 'logger', circle: [], received: [], day: 0 },
   medSettings: { times: Object.fromEntries(SLOTS.map(s => [s.key, s.time])), lead: 10, notify: false },
 };
 
@@ -34,19 +33,27 @@ function reconstructTakenMap(rows) {
 
 const DataContext = createContext(null);
 
+const ALL_SCOPES = ['readings', 'medicines', 'records', 'health'];
+
 /* Backed by the Readings/Records/Meds/Profile APIs now, not
    AsyncStorage. Kept as ONE context (not split per module) because
-   HomeScreen/CoachScreen/HealthScreen/FamilySheet/ViewerScreen/
-   DoseBanner all already depend on one unified `data` shape.
+   HomeScreen/CoachScreen/HealthScreen/DoseBanner all already depend on
+   one unified `data` shape.
 
-   `chat` (CoachScreen) and `care.circle`/`care.received`/`care.day`
-   (FamilySheet/ViewerScreen) are NOT part of this migration — every
-   merge below is careful to leave those exactly as they already are
-   in local state rather than overwriting them from a server response
-   that doesn't own them. `setData` stays exported as a raw escape
-   hatch for those still-local-only fields. */
-export function DataProvider({ children }) {
-  const { token } = useAuth();
+   `chat` (CoachScreen) is NOT part of this migration — every merge
+   below leaves it exactly as it already is in local state. `setData`
+   stays exported as a raw escape hatch for it.
+
+   With `familyOwner` set (a user id), the same provider serves a family
+   member's record instead of the signed-in user's: every API call acts
+   on that person (see apiClient.js), and only the sections in `scopes`
+   they shared are loaded. Wrapping the existing screens in one of these
+   is how the Family page shows — and edits — someone else's data. */
+export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES }) {
+  const { token: sessionToken } = useAuth();
+  const scopeKey = scopes.join(',');
+  // stable while the inputs are, so it can sit in effect deps
+  const token = useMemo(() => (familyOwner && sessionToken ? { token: sessionToken, familyOwner } : sessionToken), [sessionToken, familyOwner]);
   const [data, setData] = useState(EMPTY);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,33 +72,31 @@ export function DataProvider({ children }) {
     }
 
     let cancelled = false;
+    const has = s => scopeKey.split(',').includes(s);
     (async () => {
       setLoading(true);
       try {
-        const [readings, records, meds, taken, settings, profile] = await Promise.all([
-          readingsApi.getReadings(token),
-          recordsApi.getRecords(token),
-          medsApi.getMedicines(token),
-          medsApi.getTaken({}, token),
-          medsApi.getMedSettings(token),
-          profileApi.getProfile(token),
-        ]);
+        // each section loads on its own, so one failing (or not shared) doesn't blank the rest
+        const [readings, records, meds, taken, settings, profile] = await Promise.all(
+          [
+            has('readings') && readingsApi.getReadings(token),
+            has('records') && recordsApi.getRecords(token),
+            has('medicines') && medsApi.getMedicines(token),
+            has('medicines') && medsApi.getTaken({}, token),
+            has('medicines') && medsApi.getMedSettings(token),
+            profileApi.getProfile(token),
+          ].map(p => (p ? p.catch(() => null) : null)),
+        );
         if (cancelled) return;
         setData(d => ({
           ...d,
-          bp: readings.bp,
-          body: readings.body,
-          sugar: readings.sugar,
-          history: records.records,
-          meds: meds.medicines,
-          taken: reconstructTakenMap(taken.rows),
-          medSettings: settings.settings,
-          profile: profile.profile,
-          health: profile.health,
-          care: { ...d.care, role: profile.care.role },
+          ...(readings && { bp: readings.bp, body: readings.body, sugar: readings.sugar }),
+          ...(records && { history: records.records }),
+          ...(meds && { meds: meds.medicines }),
+          ...(taken && { taken: reconstructTakenMap(taken.rows) }),
+          ...(settings && { medSettings: settings.settings }),
+          ...(profile && { profile: profile.profile, health: profile.health }),
         }));
-      } catch {
-        // leave whatever was already loaded in place; screens still render
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -104,7 +109,7 @@ export function DataProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, scopeKey]);
 
   // ---- Readings ----
 
@@ -115,8 +120,11 @@ export function DataProvider({ children }) {
   };
 
   const addBodyReading = async ({ weightKg, heightCm }) => {
-    const profileRes = await profileApi.updateProfile({ heightCm }, token);
-    setData(d => ({ ...d, profile: profileRes.profile }));
+    // height lives on the profile — only write it when it actually changed (a family member may share readings but not health)
+    if (heightCm && String(heightCm) !== String(data.profile.heightCm || '')) {
+      const profileRes = await profileApi.updateProfile({ heightCm }, token);
+      setData(d => ({ ...d, profile: profileRes.profile }));
+    }
     const res = await readingsApi.addBodyReading({ weightKg }, token);
     setData(d => ({ ...d, body: [res.reading, ...d.body] }));
     return res.reading;
@@ -218,11 +226,6 @@ export function DataProvider({ children }) {
     setData(d => ({ ...d, profile: res.profile }));
   };
 
-  const setCareRole = async role => {
-    const res = await profileApi.setCareRole(role, token);
-    setData(d => ({ ...d, care: { ...d.care, role: res.care.role } }));
-  };
-
   const saveHealth = async health => {
     const res = await profileApi.updateHealth(health, token);
     setData(d => ({ ...d, health: res.health }));
@@ -244,13 +247,12 @@ export function DataProvider({ children }) {
     toggleDoseTaken,
     updateMedSettings,
     saveProfile,
-    setCareRole,
     saveHealth,
   };
 
   const loaded = Boolean(token) && loadedToken === token;
 
-  return <DataContext.Provider value={{ data, setData, ready, loading, loaded, ...actions }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ data, setData, ready, loading, loaded, familyOwner, ...actions }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

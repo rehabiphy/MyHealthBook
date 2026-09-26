@@ -16,12 +16,6 @@ const profileSchema = new mongoose.Schema(
       bloodGroup: { type: String, default: '' },
       upcoming: { type: [mongoose.Schema.Types.Mixed], default: [] },
     },
-    care: {
-      role: { type: String, enum: ['logger', 'viewer'], default: 'logger' },
-      circle: { type: [mongoose.Schema.Types.Mixed], default: [] },
-      received: { type: [mongoose.Schema.Types.Mixed], default: [] },
-      day: { type: Number, default: 0 },
-    },
   },
   { timestamps: true },
 );

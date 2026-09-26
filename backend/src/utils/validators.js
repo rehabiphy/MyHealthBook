@@ -12,6 +12,21 @@ export function isValidPhone(value) {
   return typeof value === 'string' && value.trim().length >= 10;
 }
 
+/* Usernames: 3–20 chars of a-z 0-9 . _, starting and ending with a
+   letter/digit, no ".." — compared case-insensitively (stored lowercase). */
+const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]{1,18})[a-z0-9]$/;
+
+export function normalizeUsername(value) {
+  return String(value || '').trim().replace(/^@/, '').toLowerCase();
+}
+
+export function isValidUsername(value) {
+  const u = normalizeUsername(value);
+  return USERNAME_RE.test(u) && !u.includes('..');
+}
+
+export const USERNAME_RULES = 'Username must be 3–20 characters: letters, numbers, dots or underscores, starting and ending with a letter or number';
+
 export function isValidPassword(value) {
   return typeof value === 'string' && value.length >= 6 && value.length <= 128;
 }

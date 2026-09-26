@@ -65,6 +65,17 @@ export function AuthProvider({ children }) {
       }
       await clearPendingRegistration();
       setReady(true);
+      /* The persisted user is a snapshot from the last login — refresh it
+         so fields added since (e.g. a username set on another device)
+         are current. Best-effort: offline just keeps the snapshot. */
+      if (session) {
+        try {
+          const res = await getMe(session.token);
+          setUser(res.user);
+        } catch {
+          // offline or token expired — the next API call surfaces that
+        }
+      }
     })();
   }, []);
 
@@ -101,7 +112,7 @@ export function AuthProvider({ children }) {
     setUser(res.user);
   };
 
-  return <AuthContext.Provider value={{ user, token, ready, signIn, signOut, refreshUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, ready, signIn, signOut, refreshUser, updateUser: setUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

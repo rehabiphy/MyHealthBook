@@ -15,6 +15,7 @@ function publicUser(user) {
   return {
     id: user._id.toString(),
     name: user.name,
+    username: user.username || null,
     email: user.email,
     phone: user.phone,
     isEmailVerified: user.isEmailVerified,

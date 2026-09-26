@@ -11,6 +11,7 @@ import TabBar from './TabBar';
 import TopHeader from './TopHeader';
 import DoseBanner from './DoseBanner';
 import AuthStack from './AuthStack';
+import ChooseUsernameScreen from '../screens/ChooseUsernameScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReminders } from '../lib/meds';
 import AssistantOrb from '../components/assistant/AssistantOrb';
@@ -30,7 +31,8 @@ import ProfileScreen from '../screens/ProfileScreen';
 import HealthScreen from '../screens/HealthScreen';
 import CoachScreen from '../screens/CoachScreen';
 import LearnScreen from '../screens/LearnScreen';
-import ViewerScreen from '../screens/ViewerScreen';
+import FamilyScreen from '../screens/FamilyScreen';
+import FamilyMemberScreen from '../screens/FamilyMemberScreen';
 import PricingScreen from '../screens/PricingScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import InsightsScreen from '../screens/InsightsScreen';
@@ -86,6 +88,10 @@ function AuthGate({ navigationRef, activeKey }) {
     return <AuthStack />;
   }
 
+  if (!user.username) {
+    return <ChooseUsernameScreen />;
+  }
+
   return <RootShell navigationRef={navigationRef} activeKey={activeKey} />;
 }
 
@@ -98,14 +104,14 @@ function RootShell({ navigationRef, activeKey }) {
   const { loaded } = useData();
   useLaunchGreeting(displayName(data.profile, user), loaded);
 
-  const isViewer = data.care?.role === 'viewer';
   const go = key => navigationRef.navigate(key);
 
-  /* Same condition DoseBanner renders under — the orb lifts above it
-     rather than covering its "Taken" button. */
-  const bannerShown =
-    !isViewer && activeKey !== 'meds' && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && (reminders.doses.length > 0 || reminders.refills.length > 0);
-  const showOrb = !isViewer && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout';
+  /* The dose banner is about the signed-in user's own medicines, so it
+     stays off while looking at a family member's record. The orb lifts
+     above it rather than covering its "Taken" button. */
+  const showBanner = activeKey !== 'meds' && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && activeKey !== 'familyMember';
+  const bannerShown = showBanner && (reminders.doses.length > 0 || reminders.refills.length > 0);
+  const showOrb = activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && activeKey !== 'familyMember';
   const fabBase = Math.max(insets.bottom, 12) + (bannerShown ? 178 : 100);
 
   return (
@@ -126,7 +132,8 @@ function RootShell({ navigationRef, activeKey }) {
           <Tab.Screen name="health" component={HealthScreen} />
           <Tab.Screen name="coach" component={CoachScreen} />
           <Tab.Screen name="learn" component={LearnScreen} />
-          <Tab.Screen name="family" component={ViewerScreen} />
+          <Tab.Screen name="family" component={FamilyScreen} />
+          <Tab.Screen name="familyMember" component={FamilyMemberScreen} />
           <Tab.Screen name="premium" component={PricingScreen} />
           <Tab.Screen name="premiumCheckout" component={CheckoutScreen} />
           <Tab.Screen name="insights" component={InsightsScreen} />
@@ -136,7 +143,7 @@ function RootShell({ navigationRef, activeKey }) {
             message box. */}
         {activeKey !== 'coach' && <TabBar activeKey={activeKey} onNavigate={go} />}
       </View>
-      {!isViewer && activeKey !== 'meds' && activeKey !== 'coach' && activeKey !== 'premium' && activeKey !== 'premiumCheckout' && <DoseBanner data={data} go={go} />}
+      {showBanner && <DoseBanner data={data} go={go} />}
       {/* Bottom-right stack: AI coach chat in the corner, the MyHealth AI
           voice orb directly above it. */}
       {showOrb && (

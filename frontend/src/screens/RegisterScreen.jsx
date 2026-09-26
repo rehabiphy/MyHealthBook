@@ -7,11 +7,13 @@ import { useAuth } from '../state/AuthContext';
 import * as authApi from '../lib/authApi';
 import { signInWithGoogle, isSignInCancelled } from '../lib/googleAuth';
 import { useDeepLinkVerification } from '../hooks/useDeepLinkVerification';
+import { useUsernameCheck } from '../hooks/useUsernameCheck';
 import AmbientBackground from '../components/AmbientBackground';
 import Card from '../components/atoms/Card';
 import Btn from '../components/atoms/Btn';
 import GoogleButton from '../components/atoms/GoogleButton';
 import Input from '../components/atoms/Input';
+import UsernameStatus from '../components/atoms/UsernameStatus';
 import GradientText from '../components/atoms/GradientText';
 import Press from '../components/atoms/Press';
 
@@ -21,6 +23,8 @@ export default function RegisterScreen({ navigation }) {
   const auth = useAuth();
 
   const [name, setName] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const uname = useUsernameCheck(usernameInput);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +49,7 @@ export default function RegisterScreen({ navigation }) {
   const canSendVerification = nameValid && emailValid && verificationState === 'idle' && !sendingEmail;
 
   const canSubmit =
-    nameValid && emailValid && phoneValid && passwordValid && confirmPassword === password && verificationState === 'verified' && !submitting;
+    nameValid && uname.ok && emailValid && phoneValid && passwordValid && confirmPassword === password && verificationState === 'verified' && !submitting;
 
   const handleSendVerification = async () => {
     if (!canSendVerification) return;
@@ -66,7 +70,7 @@ export default function RegisterScreen({ navigation }) {
     setFormError('');
     setSubmitting(true);
     try {
-      const res = await authApi.register({ name: name.trim(), email: email.trim(), phone: phone.trim(), password });
+      const res = await authApi.register({ name: name.trim(), username: uname.username, email: email.trim(), phone: phone.trim(), password });
       auth.signIn(res.token, res.user);
     } catch (err) {
       setFormError(err.message);
@@ -102,6 +106,18 @@ export default function RegisterScreen({ navigation }) {
 
         <Card style={{ padding: 20 }}>
           <Input label="Full Name" value={name} onChangeText={setName} placeholder="Jane Doe" editable={verificationState === 'idle'} />
+
+          <Input
+            label="Username"
+            value={usernameInput}
+            onChangeText={t => setUsernameInput(t.replace(/\s/g, '').toLowerCase())}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="jane.doe"
+            error={uname.error}
+            hint={uname.hint || (uname.status === 'empty' ? 'Family members invite you with this' : '')}
+            right={<UsernameStatus uname={uname} />}
+          />
 
           <Input
             label="Email"

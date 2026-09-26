@@ -1,6 +1,7 @@
 import Medicine from '../models/Medicine.js';
 import DoseLog from '../models/DoseLog.js';
 import MedSettings from '../models/MedSettings.js';
+import MedicineCatalog, { tokenize } from '../models/MedicineCatalog.js';
 import { isNonEmptyString, isValidStringArray, isOneOf, isValidNumber, isValidDayKey } from '../utils/validators.js';
 
 const SLOT_KEYS = ['empty', 'breakfast', 'lunch', 'dinner', 'bed'];
@@ -25,6 +26,64 @@ function publicMedicine(doc) {
 
 function publicSettings(doc) {
   return { times: doc.times, lead: doc.lead, notify: doc.notify };
+}
+
+const CATALOG_FIELDS = { _id: 1, name: 1, manufacturer: 1, packSize: 1, composition: 1, price: 1, discontinued: 1 };
+const CATALOG_MAX_LIMIT = 50;
+const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function publicCatalogItem(doc) {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    manufacturer: doc.manufacturer,
+    packSize: doc.packSize,
+    composition: doc.composition,
+    price: doc.price,
+    discontinued: doc.discontinued,
+  };
+}
+
+/* GET /api/meds/catalog?q=dolo&page=1&limit=20
+   Results come in two alphabetical sections, paged as one list:
+     1. names starting with the query ("pan 40" → "Pan 40 Tablet")
+     2. everything else where every query word prefix-matches a word of
+        the name or composition ("telmisartan" → "Arbitel 40 Tablet")
+   Both are plain index-backed sorted finds, so broad queries like "ta"
+   stay fast — no in-memory ranking over tens of thousands of matches.
+   Uses limit+1 to report hasMore instead of counting the whole list. */
+export async function searchCatalog(req, res) {
+  const q = String(req.query.q || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(CATALOG_MAX_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const skip = (page - 1) * limit;
+  const want = limit + 1;
+  const sorted = (filter, s, n) => MedicineCatalog.find(filter, CATALOG_FIELDS).sort({ nameLower: 1, _id: 1 }).skip(s).limit(n).lean();
+
+  let docs;
+  const tokens = tokenize(q);
+  if (!tokens.length) {
+    docs = await sorted({}, skip, want);
+  } else {
+    const prefix = new RegExp(`^${escapeRegex(q)}`);
+    const byName = { nameLower: prefix };
+    const byWords = { words: { $all: tokens.map(t => new RegExp(`^${escapeRegex(t)}`)) }, nameLower: { $not: prefix } };
+
+    const nameCount = await MedicineCatalog.countDocuments(byName);
+    docs = skip < nameCount ? await sorted(byName, skip, want) : [];
+    if (docs.length < want) {
+      docs = docs.concat(await sorted(byWords, Math.max(0, skip - nameCount), want - docs.length));
+    }
+  }
+
+  const hasMore = docs.length > limit;
+  return res.json({
+    success: true,
+    page,
+    limit,
+    hasMore,
+    items: docs.slice(0, limit).map(publicCatalogItem),
+  });
 }
 
 export async function getMedicines(req, res) {

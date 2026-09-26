@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
-import { GRAD } from '../theme/gradients';
+import { GRAD, GRAD_SHEET } from '../theme/gradients';
 import { SLOTS, activeMeds, adherence, dayKey, dosesToday, prettyTime, slotOf } from '../lib/meds';
 import { fmtDay } from '../lib/calc';
 import { useData } from '../state/DataContext';
@@ -16,14 +17,19 @@ import Btn from '../components/atoms/Btn';
 import Seg from '../components/atoms/Seg';
 import Press from '../components/atoms/Press';
 import MedicineDoseCard from '../components/meds/MedicineDoseCard';
+import MedicinePickerSheet from '../components/meds/MedicinePickerSheet';
 import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 
 export default function MedsScreen() {
   const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings } = useData();
   const ask = useAsk();
   const bottomPad = useTabBarClearance();
+  const insets = useSafeAreaInsets(); // the add-medicine Modal draws edge-to-edge
   const [name, setName] = useState('');
+  const [nameInfo, setNameInfo] = useState(''); // composition · maker of the catalog pick, shown under the name
+  const [picking, setPicking] = useState(false);
   const [dose, setDose] = useState('');
   const [picked, setPicked] = useState([]);
   const [stock, setStock] = useState('');
@@ -53,23 +59,22 @@ export default function MedsScreen() {
 
   const toggleSlot = k => setPicked(p => (p.includes(k) ? p.filter(x => x !== k) : [...p, k]));
 
+  const closeForm = () => {
+    setAdding(false);
+    setName('');
+    setNameInfo('');
+    setDose('');
+    setPicked([]);
+    setStock('');
+    setPerDose('1');
+  };
+
   const addMed = async () => {
     if (!name.trim() || !picked.length || saving) return;
     setSaving(true);
     try {
-      await addMedicine({
-        name: name.trim(),
-        dose: dose.trim(),
-        slots: picked,
-        perDose: Math.max(1, +perDose || 1),
-        stock: stock === '' ? null : +stock,
-      });
-      setName('');
-      setDose('');
-      setPicked([]);
-      setStock('');
-      setPerDose('1');
-      setAdding(false);
+      await addMedicine({ name: name.trim(), dose: dose.trim(), slots: picked, perDose: Math.max(1, +perDose || 1), stock: stock === '' ? null : +stock });
+      closeForm();
       say('Medicine added');
     } catch (err) {
       say(err.message);
@@ -174,11 +179,15 @@ export default function MedsScreen() {
         }
       />
 
-      {note ? (
+      {note && !adding ? (
         <View style={styles.noteBanner}>
           <Text style={styles.noteText}>{note}</Text>
         </View>
       ) : null}
+
+      <Btn style={{ marginTop: 18 }} onClick={() => setAdding(true)}>
+        + Add medicine
+      </Btn>
 
       {medCards.length > 0 && (
         <>
@@ -210,104 +219,143 @@ export default function MedsScreen() {
         </>
       )}
 
-      {adding ? (
-        <Card style={{ marginTop: 4 }}>
-          <Mono>Medicine name</Mono>
-          <TextInput value={name} onChangeText={setName} placeholder="Telmisartan" placeholderTextColor={C.ink3} style={styles.nameInput} />
-          <View style={{ marginTop: 18 }}>
-            <Mono>Dose — optional</Mono>
-            <TextInput value={dose} onChangeText={setDose} placeholder="40 mg · 1 tablet" placeholderTextColor={C.ink3} style={styles.doseInput} />
-          </View>
-          <View style={styles.stockRow}>
-            <View style={{ flex: 1 }}>
-              <Mono>Tablets in hand</Mono>
-              <TextInput
-                value={stock}
-                onChangeText={t => setStock(t.replace(/\D/g, '').slice(0, 4))}
-                keyboardType="number-pad"
-                placeholder="optional"
-                placeholderTextColor={C.ink3}
-                style={styles.doseInput}
-              />
+      <Modal visible={adding} animationType="slide" onRequestClose={closeForm}>
+        <LinearGradient colors={GRAD_SHEET.colors} locations={GRAD_SHEET.locations} start={GRAD_SHEET.start} end={GRAD_SHEET.end} style={{ flex: 1 }}>
+          <View style={[styles.sheetHeader, { paddingTop: insets.top + 16, paddingLeft: insets.left + 18, paddingRight: insets.right + 18 }]}>
+            <View>
+              <Text style={styles.sheetTitle}>Add a medicine</Text>
+              <Mono style={{ marginTop: 3 }}>Name, dose and when you take it</Mono>
             </View>
-            <View style={{ width: 92 }}>
-              <Mono>Per dose</Mono>
-              <TextInput
-                value={perDose}
-                onChangeText={t => setPerDose(t.replace(/\D/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                placeholder="1"
-                placeholderTextColor={C.ink3}
-                style={styles.doseInput}
-              />
-            </View>
+            <Press onPress={closeForm} style={styles.closeBtn}>
+              <Svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round">
+                <Path d="M6 6l12 12M18 6L6 18" />
+              </Svg>
+            </Press>
           </View>
-          <Text style={styles.hintText}>Fill these in and you'll be warned 3, 2 and 1 days before the strip runs out.</Text>
 
-          <View style={{ marginTop: 20 }}>
-            <Mono>When do you take it</Mono>
-            <Text style={styles.hintText}>Tap the time to change it.</Text>
-            <View style={{ marginTop: 10 }}>
-              {SLOTS.map(s => {
-                const on = picked.includes(s.key);
-                return (
-                  <Press key={s.key} onPress={() => toggleSlot(s.key)} style={styles.slotOptWrap}>
-                    {on ? (
-                      <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.slotOpt}>
-                        <Text style={[styles.slotOptLabel, { color: '#FFFFFF' }]}>
-                          {s.label}
-                          {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.7 }}> · {s.sub}</Text> : ''}
-                        </Text>
-                        <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
-                          <Text style={styles.slotOptTime}>{prettyTime(times[s.key])}</Text>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+              {note ? (
+                <View style={[styles.noteBanner, { marginTop: 0, marginBottom: 12 }]}>
+                  <Text style={styles.noteText}>{note}</Text>
+                </View>
+              ) : null}
+              <Card blur={false}>
+                <Mono>Medicine name</Mono>
+                <Press onPress={() => setPicking(true)} style={styles.namePicker}>
+                  <Text style={[styles.namePickerText, !name && { color: C.ink3 }]} numberOfLines={2}>
+                    {name || 'Search medicines'}
+                  </Text>
+                  <Svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.ink3} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M6 9l6 6 6-6" />
+                  </Svg>
+                </Press>
+                {nameInfo ? <Text style={styles.hintText}>{nameInfo}</Text> : null}
+                {picking && (
+                  <MedicinePickerSheet
+                    initialQuery={name}
+                    onClose={() => setPicking(false)}
+                    onPick={med => {
+                      setName(med.name);
+                      setNameInfo([med.composition, med.manufacturer].filter(Boolean).join(' · '));
+                      setPicking(false);
+                    }}
+                  />
+                )}
+                <View style={{ marginTop: 18 }}>
+                  <Mono>Dose — optional</Mono>
+                  <TextInput value={dose} onChangeText={setDose} placeholder="40 mg · 1 tablet" placeholderTextColor={C.ink3} style={styles.doseInput} />
+                </View>
+                <View style={styles.stockRow}>
+                  <View style={{ flex: 1 }}>
+                    <Mono>Tablets in hand</Mono>
+                    <TextInput
+                      value={stock}
+                      onChangeText={t => setStock(t.replace(/\D/g, '').slice(0, 4))}
+                      keyboardType="number-pad"
+                      placeholder="optional"
+                      placeholderTextColor={C.ink3}
+                      style={styles.doseInput}
+                    />
+                  </View>
+                  <View style={{ width: 92 }}>
+                    <Mono>Per dose</Mono>
+                    <TextInput
+                      value={perDose}
+                      onChangeText={t => setPerDose(t.replace(/\D/g, '').slice(0, 2))}
+                      keyboardType="number-pad"
+                      placeholder="1"
+                      placeholderTextColor={C.ink3}
+                      style={styles.doseInput}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.hintText}>Fill these in and you'll be warned 3, 2 and 1 days before the strip runs out.</Text>
+
+                <View style={{ marginTop: 20 }}>
+                  <Mono>When do you take it</Mono>
+                  <Text style={styles.hintText}>Tap the time to change it.</Text>
+                  <View style={{ marginTop: 10 }}>
+                    {SLOTS.map(s => {
+                      const on = picked.includes(s.key);
+                      return (
+                        <Press key={s.key} onPress={() => toggleSlot(s.key)} style={styles.slotOptWrap}>
+                          {on ? (
+                            <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.slotOpt}>
+                              <Text style={[styles.slotOptLabel, { color: '#FFFFFF' }]}>
+                                {s.label}
+                                {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.7 }}> · {s.sub}</Text> : ''}
+                              </Text>
+                              <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
+                                <Text style={styles.slotOptTime}>{prettyTime(times[s.key])}</Text>
+                              </Press>
+                            </LinearGradient>
+                          ) : (
+                            <View style={[styles.slotOpt, styles.slotOptOff]}>
+                              <Text style={[styles.slotOptLabel, { color: C.ink }]}>
+                                {s.label}
+                                {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.6 }}> · {s.sub}</Text> : ''}
+                              </Text>
+                              <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
+                                <Text style={[styles.slotOptTime, { color: C.ink2 }]}>{prettyTime(times[s.key])}</Text>
+                              </Press>
+                            </View>
+                          )}
                         </Press>
-                      </LinearGradient>
-                    ) : (
-                      <View style={[styles.slotOpt, styles.slotOptOff]}>
-                        <Text style={[styles.slotOptLabel, { color: C.ink }]}>
-                          {s.label}
-                          {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.6 }}> · {s.sub}</Text> : ''}
-                        </Text>
-                        <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
-                          <Text style={[styles.slotOptTime, { color: C.ink2 }]}>{prettyTime(times[s.key])}</Text>
-                        </Press>
-                      </View>
-                    )}
-                  </Press>
-                );
-              })}
-            </View>
-            {timePickerFor && (
-              <DateTimePicker
-                value={timeToDate(times[timePickerFor])}
-                mode="time"
-                is24Hour={false}
-                display="default"
-                onChange={(event, selected) => {
-                  const key = timePickerFor;
-                  setTimePickerFor(null);
-                  if (event.type === 'dismissed' || !selected) return;
-                  const hh = String(selected.getHours()).padStart(2, '0');
-                  const mm = String(selected.getMinutes()).padStart(2, '0');
-                  setSettings({ times: { ...times, [key]: `${hh}:${mm}` } });
-                }}
-              />
-            )}
-          </View>
-          <View style={styles.row2}>
-            <Btn kind="quiet" style={{ flex: 1 }} onClick={() => { setAdding(false); setName(''); setDose(''); setPicked([]); }}>
+                      );
+                    })}
+                  </View>
+                  {timePickerFor && (
+                    <DateTimePicker
+                      value={timeToDate(times[timePickerFor])}
+                      mode="time"
+                      is24Hour={false}
+                      display="default"
+                      onChange={(event, selected) => {
+                        const key = timePickerFor;
+                        setTimePickerFor(null);
+                        if (event.type === 'dismissed' || !selected) return;
+                        const hh = String(selected.getHours()).padStart(2, '0');
+                        const mm = String(selected.getMinutes()).padStart(2, '0');
+                        setSettings({ times: { ...times, [key]: `${hh}:${mm}` } });
+                      }}
+                    />
+                  )}
+                </View>
+              </Card>
+            </ScrollView>
+          </KeyboardAvoidingView>
+
+          <View style={[styles.sheetFooter, { paddingBottom: insets.bottom + 12 }]}>
+            <Btn kind="quiet" style={{ flex: 1 }} onClick={closeForm}>
               Cancel
             </Btn>
             <Btn style={{ flex: 1 }} disabled={!name.trim() || !picked.length || saving} onClick={addMed}>
               {saving ? 'Adding…' : 'Add medicine'}
             </Btn>
           </View>
-        </Card>
-      ) : (
-        <Btn style={{ marginTop: 4 }} onClick={() => setAdding(true)}>
-          Add a medicine
-        </Btn>
-      )}
+        </LinearGradient>
+      </Modal>
 
       {data.meds.some(m => (m.status || 'active') !== 'active') && (
         <Card style={{ marginTop: 10 }}>
@@ -350,9 +398,7 @@ export default function MedsScreen() {
             />
           </View>
         </View>
-        <Text style={styles.hintText}>
-          Doses due and refills running low show as a banner while the app is open. Alerts that wake the phone with the app closed aren't part of this build yet.
-        </Text>
+        <Text style={styles.hintText}>Doses due and refills running low show as a banner while the app is open. Alerts that wake the phone with the app closed aren't part of this build yet.</Text>
       </Card>
 
       <Card style={{ marginTop: 10 }}>
@@ -375,7 +421,8 @@ const styles = StyleSheet.create({
   todayCount: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2 },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(22,36,28,0.08)', marginTop: 10, marginHorizontal: 4, overflow: 'hidden' },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: C.brand },
-  nameInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.semibold, fontSize: 20, color: C.ink },
+  namePicker: { flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8 },
+  namePickerText: { flex: 1, fontFamily: SANS.semibold, fontSize: 20, color: C.ink },
   doseInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.medium, fontSize: 16, color: C.ink },
   stockRow: { flexDirection: 'row', gap: 14, marginTop: 18 },
   hintText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, lineHeight: 21, marginTop: 8 },
@@ -385,7 +432,10 @@ const styles = StyleSheet.create({
   slotOptLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
   slotTimeBtn: { paddingVertical: 6, paddingHorizontal: 10, marginVertical: -6, marginHorizontal: -10, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.14)' },
   slotOptTime: { fontFamily: MONO.medium, fontSize: 13, letterSpacing: 0.6, opacity: 0.9, color: '#FFFFFF' },
-  row2: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
+  sheetTitle: { fontFamily: SANS.bold, fontSize: 19, letterSpacing: -0.6, color: C.ink },
+  closeBtn: { width: 36, height: 36, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  sheetFooter: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.hair },
   inactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
   inactiveName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2, letterSpacing: -0.3 },
   restartBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },

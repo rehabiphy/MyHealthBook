@@ -56,8 +56,7 @@ export default function CoachScreen() {
   const insets = useSafeAreaInsets();
   const go = useGo();
   const msgs = data.chat;
-  // back to where this person's app starts: Updates for a family viewer, Home otherwise
-  const back = () => go(data.care?.role === 'viewer' ? 'family' : 'home');
+  const back = () => go('home');
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);

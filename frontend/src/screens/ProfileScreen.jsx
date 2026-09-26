@@ -16,7 +16,7 @@ import Btn from '../components/atoms/Btn';
 import Seg from '../components/atoms/Seg';
 import { G } from '../components/icons/ScreenGlyphs';
 import ReportSheet from '../components/dialogs/ReportSheet';
-import FamilySheet from '../components/dialogs/FamilySheet';
+import { useGo } from '../navigation/useGo';
 
 const SEXES = [
   { value: 'male', label: 'Male' },
@@ -34,12 +34,12 @@ function Row({ label, children }) {
 }
 
 export default function ProfileScreen() {
-  const { data, setData, saveProfile, deleteAllReadings } = useData();
-  const { signOut } = useAuth();
+  const { data, saveProfile, deleteAllReadings } = useData();
+  const { user, signOut } = useAuth();
   const ask = useAsk();
+  const go = useGo();
   const bottomPad = useTabBarClearance();
   const [report, setReport] = useState(false);
-  const [family, setFamily] = useState(false);
   const [draft, setDraft] = useState(data.profile);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -85,6 +85,7 @@ export default function ProfileScreen() {
           </LinearGradient>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.name}>{p.name || 'Add your name'}</Text>
+            {user?.username ? <Mono style={{ marginTop: 3, color: C.brand2 }}>@{user.username}</Mono> : null}
             <Text style={styles.subline}>{[p.age && `${p.age} years`, p.sex && SEXES.find(x => x.value === p.sex)?.label, p.heightCm && `${p.heightCm} cm`, w && `${kg1(w.weightKg)} kg`].filter(Boolean).join(' · ') || 'Details below'}</Text>
           </View>
         </View>
@@ -197,11 +198,13 @@ export default function ProfileScreen() {
       </Card>
 
       <View style={styles.sectionPad}>
-        <Mono>Family Circle</Mono>
+        <Mono>Family</Mono>
       </View>
       <Card>
-        <Text style={styles.hintText}>Create your Family Circle by adding family members or relatives who can stay connected with your health information and important updates.</Text>
-        <Btn style={{ marginTop: 14 }} onClick={() => setFamily(true)}>{`Add Contact${data.care?.circle?.length ? ` · ${data.care.circle.length}` : ''}`}</Btn>
+        <Text style={styles.hintText}>Invite family by username and choose which parts of your record they can see and edit. Records shared with you, and invitations waiting for you, are here too.</Text>
+        <Btn style={{ marginTop: 14 }} onClick={() => go('family')}>
+          Open Family
+        </Btn>
       </Card>
 
       <Card style={{ marginTop: 10 }}>
@@ -259,7 +262,6 @@ export default function ProfileScreen() {
       </Btn>
 
       {report && <ReportSheet data={data} onClose={() => setReport(false)} />}
-      {family && <FamilySheet data={data} setData={setData} onClose={() => setFamily(false)} />}
     </ScrollView>
   );
 }
