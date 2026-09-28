@@ -2,6 +2,11 @@
    medicine_catalog collection. Safe to re-run: it replaces the whole
    collection each time.
 
+   The dataset isn't in git (it's ~176 MB). Download
+   DATA/updated_indian_medicine_data.csv from
+   https://github.com/junioralive/Indian-Medicine-Dataset into
+   meds_datasets/DATA/ at the repo root first.
+
      npm run import:meds                  # default dataset path
      npm run import:meds -- path/to.csv   # a different CSV, same columns */
 import 'dotenv/config';

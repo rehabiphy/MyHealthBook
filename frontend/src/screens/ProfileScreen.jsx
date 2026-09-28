@@ -16,6 +16,7 @@ import Btn from '../components/atoms/Btn';
 import Seg from '../components/atoms/Seg';
 import { G } from '../components/icons/ScreenGlyphs';
 import ReportSheet from '../components/dialogs/ReportSheet';
+import SafetyCard from '../components/sos/SafetyCard';
 import { useGo } from '../navigation/useGo';
 
 const SEXES = [
@@ -206,6 +207,8 @@ export default function ProfileScreen() {
           Open Family
         </Btn>
       </Card>
+
+      <SafetyCard />
 
       <Card style={{ marginTop: 10 }}>
         <Mono>Your data</Mono>

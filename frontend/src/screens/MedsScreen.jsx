@@ -23,7 +23,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 
 export default function MedsScreen() {
-  const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings } = useData();
+  const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings, deleteMedicine } = useData();
   const ask = useAsk();
   const bottomPad = useTabBarClearance();
   const insets = useSafeAreaInsets(); // the add-medicine Modal draws edge-to-edge
@@ -107,6 +107,23 @@ export default function MedsScreen() {
     try {
       await setMedStatus(id, status);
       say(status === 'paused' ? `${med.name} paused` : `${med.name} is active again`);
+    } catch (err) {
+      say(err.message);
+    }
+  };
+
+  const removeMed = async med => {
+    const ok = await ask({
+      title: `Delete ${med.name}?`,
+      body: 'It and its dose history are removed from your record for good. This cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep it',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteMedicine(med.id);
+      say(`${med.name} deleted`);
     } catch (err) {
       say(err.message);
     }
@@ -373,9 +390,16 @@ export default function MedsScreen() {
                     {m.stopReason ? ` · ${m.stopReason}` : ''}
                   </Mono>
                 </View>
-                <Press onPress={() => setStatus(m.id, 'active')} style={styles.restartBtn}>
-                  <Text style={styles.restartLabel}>Start again</Text>
-                </Press>
+                <View style={styles.inactiveActions}>
+                  <Press onPress={() => setStatus(m.id, 'active')} style={styles.restartBtn}>
+                    <Text style={styles.restartLabel}>Start again</Text>
+                  </Press>
+                  <Press onPress={() => removeMed(m)} style={styles.deleteBtn} accessibilityLabel={`Delete ${m.name}`}>
+                    <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <Path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+                    </Svg>
+                  </Press>
+                </View>
               </View>
             ))}
         </Card>
@@ -440,5 +464,7 @@ const styles = StyleSheet.create({
   inactiveName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2, letterSpacing: -0.3 },
   restartBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
   restartLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
+  inactiveActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deleteBtn: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

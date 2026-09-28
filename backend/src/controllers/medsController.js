@@ -148,8 +148,9 @@ export async function setMedicineStatus(req, res) {
 }
 
 /* Hard delete, for undoing a medicine added by mistake (MyHealth AI's
-   "Undo"). Stopping a real medicine goes through setMedicineStatus
-   instead, which keeps its history. */
+   "Undo") or removing a stopped/paused one from the record for good.
+   Stopping a real medicine goes through setMedicineStatus instead,
+   which keeps its history. */
 export async function deleteMedicine(req, res) {
   const result = await Medicine.deleteOne({ _id: req.params.id, userId: req.user.id });
   if (result.deletedCount === 0) {

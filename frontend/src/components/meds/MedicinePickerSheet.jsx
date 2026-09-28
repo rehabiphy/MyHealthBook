@@ -56,9 +56,22 @@ export default function MedicinePickerSheet({ initialQuery = '', onPick, onClose
     [token],
   );
 
-  // new query → restart from page 1 after the user pauses typing
+  // new query → restart from page 1 after the user pauses typing;
+  // an empty box shows nothing rather than browsing the whole catalog
   useEffect(() => {
-    const t = setTimeout(() => load(query.trim(), 1), query ? DEBOUNCE_MS : 0);
+    const q = query.trim();
+    if (!q) {
+      reqId.current++; // drop any search still in flight
+      loadingRef.current = false;
+      loadedQuery.current = null;
+      setItems([]);
+      setPage(0);
+      setHasMore(true);
+      setLoading(false);
+      setError('');
+      return;
+    }
+    const t = setTimeout(() => load(q, 1), DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query, load]);
 

@@ -18,6 +18,7 @@ import AssistantOrb from '../components/assistant/AssistantOrb';
 import AssistantOverlay from '../components/assistant/AssistantOverlay';
 import useLaunchGreeting from '../lib/assistant/useLaunchGreeting';
 import CoachFab from '../components/assistant/CoachFab';
+import SosLayer from '../components/sos/SosLayer';
 
 const COACH_FAB = 56;
 const FAB_GAP = 14;
@@ -153,6 +154,8 @@ function RootShell({ navigationRef, activeKey }) {
         </>
       )}
       <AssistantOverlay visible={assistantOpen} onClose={() => setAssistantOpen(false)} go={go} />
+      {/* last, so a family SOS covers everything else */}
+      <SosLayer />
     </View>
   );
 }

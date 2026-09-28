@@ -186,7 +186,7 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
     return res.medicine;
   };
 
-  // hard delete — only for undoing a medicine just added by mistake
+  // hard delete, dose history included — for a medicine added by mistake or one the user removes from "Not taking now"
   const deleteMedicine = async id => {
     await medsApi.deleteMedicine(id, token);
     setData(d => ({ ...d, meds: d.meds.filter(m => m.id !== id) }));

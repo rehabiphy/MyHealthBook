@@ -3,6 +3,8 @@ import { loadSession, saveSession, clearSession, clearPendingRegistration } from
 import { getMe } from '../lib/authApi';
 import * as fcmApi from '../lib/fcmApi';
 import { requestNotificationPermission, getFcmToken, onFcmTokenRefresh } from '../lib/notifications';
+import { configureSos } from '../lib/sosNative';
+import { API_BASE_URL } from '../lib/apiConfig';
 
 const AuthContext = createContext(null);
 
@@ -84,6 +86,13 @@ export function AuthProvider({ children }) {
     if (token && user) saveSession({ token, user });
     else clearSession();
   }, [token, user, ready]);
+
+  /* Fall detection and the SOS notification buttons call the API
+     natively while the app is killed — they need the current session.
+     Signing out clears it, which also switches fall detection off. */
+  useEffect(() => {
+    if (ready) configureSos(API_BASE_URL, token);
+  }, [token, ready]);
 
   const signIn = (nextToken, nextUser) => {
     setToken(nextToken);

@@ -67,6 +67,10 @@ yarn-error.log
 # testing
 /coverage
 
+# Medicine dataset (~176 MB) — only needed to run `npm run import:meds` in
+# backend/; download it from github.com/junioralive/Indian-Medicine-Dataset
+/meds_datasets/
+
 # Yarn
 .yarn/*
 !.yarn/patches

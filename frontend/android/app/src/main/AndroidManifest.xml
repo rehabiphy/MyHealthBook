@@ -5,6 +5,20 @@
     <!-- MyHealth AI voice commands -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Fall detection + family SOS (android/.../sos) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- fall detection: background accelerometer service (health type needs HIGH_SAMPLING_RATE_SENSORS or similar) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <!-- the SOS alarm plays for its whole 30 s window, app killed or not -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- lifts the alarm volume while an SOS rings -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <!-- Android 11+ package visibility: without this the app can't see
          the system speech recognizer and voice input reports unavailable. -->
     <queries>
@@ -59,5 +73,22 @@
             <data android:scheme="https" android:host="myhealthbook.rehabiphy.com" android:pathPrefix="/verify" />
         </intent-filter>
       </activity>
+
+      <!-- Fall detection + family SOS -->
+      <service
+        android:name=".sos.FallDetectionService"
+        android:exported="false"
+        android:foregroundServiceType="health" />
+      <service
+        android:name=".sos.SosAlarmService"
+        android:exported="false"
+        android:foregroundServiceType="mediaPlayback" />
+      <receiver android:name=".sos.SosActionReceiver" android:exported="false" />
+      <receiver android:name=".sos.BootReceiver" android:exported="false">
+        <intent-filter>
+          <action android:name="android.intent.action.BOOT_COMPLETED" />
+          <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        </intent-filter>
+      </receiver>
     </application>
 </manifest>

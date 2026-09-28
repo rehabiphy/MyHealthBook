@@ -1,6 +1,7 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import { getMessaging, getToken, onTokenRefresh, onMessage } from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance } from '@notifee/react-native';
+import { handleSosPush } from './sos';
 
 /* @react-native-firebase/messaging v26 uses the modular API (no more
    messaging().getToken()) — every call takes the Messaging instance
@@ -39,6 +40,7 @@ export function setupForegroundNotifications() {
   ensureDefaultChannel();
 
   return onMessage(messagingInstance, async remoteMessage => {
+    if (handleSosPush(remoteMessage)) return; // rings natively, shown in-app by SosLayer
     const { title, body } = remoteMessage.notification || {};
     if (!title && !body) return; // data-only message — nothing to show without app-specific handling
     await notifee.displayNotification({
