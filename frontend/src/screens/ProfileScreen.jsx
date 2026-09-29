@@ -17,6 +17,7 @@ import Seg from '../components/atoms/Seg';
 import { G } from '../components/icons/ScreenGlyphs';
 import ReportSheet from '../components/dialogs/ReportSheet';
 import SafetyCard from '../components/sos/SafetyCard';
+import NotificationsCard from '../components/NotificationsCard';
 import { useGo } from '../navigation/useGo';
 
 const SEXES = [
@@ -208,12 +209,14 @@ export default function ProfileScreen() {
         </Btn>
       </Card>
 
+      <NotificationsCard />
+
       <SafetyCard />
 
       <Card style={{ marginTop: 10 }}>
         <Mono>Your data</Mono>
         <Text style={styles.dataText}>
-          {data.bp.length} pressure · {data.body.length} weight · {data.sugar.length} sugar · {data.meds.length} medicine{data.meds.length === 1 ? '' : 's'} · {hist.length} history record{hist.length === 1 ? '' : 's'}, held on this device.
+          {data.bp.length} pressure · {data.body.length} weight · {data.sugar.length} sugar · {data.meds.length} medicine{data.meds.length === 1 ? '' : 's'} · {hist.length} history record{hist.length === 1 ? '' : 's'}, saved securely to your account.
         </Text>
         <Btn onClick={() => setReport(true)} style={{ paddingVertical: 17 }}>
           Open report

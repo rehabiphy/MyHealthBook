@@ -103,9 +103,9 @@ export function refillsDue(data) {
 
 export const activeMeds = data => data.meds.filter(m => (m.status || 'active') === 'active');
 
-/* Polls while mounted and surfaces doses due now + refills running low.
-   In-app only — no OS-level scheduled notification, matching the app's
-   current behaviour (a real background alarm is future work). */
+/* Polls while mounted and surfaces doses due now + refills running low,
+   as the in-app banner. The notifications that arrive with the app
+   closed are scheduled separately, in lib/medReminders.js. */
 export function useReminders(data) {
   const [state, setState] = useState({ doses: [], refills: [], sig: '' });
   const dataRef = useRef(data);

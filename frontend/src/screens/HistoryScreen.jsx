@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { pick as pickDocument, types as documentTypes } from '@react-native-documents/picker';
 import Svg, { Path } from 'react-native-svg';
@@ -7,6 +7,7 @@ import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
 import { FILTERS, HISTORY_TYPES, monthLabel, normType, typeOf } from '../lib/history';
+import { MAX_ATTACHMENT_MB, sizeLabel } from '../lib/attachments';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
 import { useTabBarClearance } from '../navigation/TabBar';
@@ -16,6 +17,7 @@ import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
 import Press from '../components/atoms/Press';
 import TypeIcon from '../components/icons/TypeIcon';
+import ReportViewer from '../components/ReportViewer';
 import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -51,6 +53,15 @@ function Field({ label, keyName, draft, onChange, multi, placeholder }) {
   );
 }
 
+function FileGlyph({ color = C.ink2 }) {
+  return (
+    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <Path d="M14 3v5h5M9 13h6M9 17h4" />
+    </Svg>
+  );
+}
+
 function Line({ k, v }) {
   if (!v) return null;
   return (
@@ -62,7 +73,7 @@ function Line({ k, v }) {
 }
 
 export default function HistoryScreen() {
-  const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine } = useData();
+  const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine, uploadRecordFile, recordFileUrl } = useData();
   const ask = useAsk();
   const bottomPad = useTabBarClearance();
   const [view, setView] = useState('list'); // list | pick | form | detail
@@ -74,6 +85,9 @@ export default function HistoryScreen() {
   const [toast, setToast] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadPct, setUploadPct] = useState(null); // 0–1 while a report file is uploading
+  const [fileError, setFileError] = useState('');
+  const [viewing, setViewing] = useState(null); // the record whose report is open in the viewer
 
   const items = data.history || [];
   const say = m => {
@@ -90,6 +104,11 @@ export default function HistoryScreen() {
       return false;
     });
     return () => sub.remove();
+  }, [view]);
+
+  // an upload error belongs to the form it happened in, not the next one
+  useEffect(() => {
+    if (view === 'form') setFileError('');
   }, [view]);
 
   const shown = items
@@ -120,10 +139,11 @@ export default function HistoryScreen() {
     medDose: '',
     notes: '',
     file: '',
+    upload: null,
   });
 
   const save = async () => {
-    if (!draft.title.trim() || saving) return;
+    if (!draft.title.trim() || saving || uploadPct != null) return;
     setSaving(true);
     try {
       const record = await addOrUpdateHistory(draft);
@@ -177,14 +197,36 @@ export default function HistoryScreen() {
     }
   };
 
+  /* Uploads as soon as it's picked (with progress), so saving the record
+     is instant. A file picked and then abandoned is removed from storage
+     by itself after a day. */
   const pickFile = async () => {
+    let picked;
     try {
-      const [res] = await pickDocument({ type: [documentTypes.images, documentTypes.pdf] });
-      if (res) setDraft({ ...draft, file: `${res.name} · ${((res.size || 0) / 1024 / 1024).toFixed(1)} MB` });
+      [picked] = await pickDocument({ type: [documentTypes.images, documentTypes.pdf] });
     } catch {
-      // user cancelled — no-op, matching the original's silent cancel behaviour
+      return; // cancelled
+    }
+    if (!picked) return;
+    setFileError('');
+    setUploadPct(0);
+    try {
+      const upload = await uploadRecordFile(picked, setUploadPct);
+      setDraft(d => ({ ...d, upload, removeAttachment: false }));
+    } catch (err) {
+      setFileError(err.message);
+    } finally {
+      setUploadPct(null);
     }
   };
+
+  const removeFile = () => {
+    setFileError('');
+    setDraft(d => ({ ...d, upload: null, removeAttachment: Boolean(d.attachment) }));
+  };
+
+  // shown in the app's own viewer, never handed to a browser (components/ReportViewer.jsx)
+  const openFile = rec => setViewing(rec);
 
   // functional update, so fast typing never works from a stale draft
   const setField = (keyName, t) => setDraft(d => ({ ...d, [keyName]: t }));
@@ -258,13 +300,64 @@ export default function HistoryScreen() {
           <Field label="Notes" keyName="notes" draft={draft} onChange={setField} multi />
           <View style={{ marginTop: 18 }}>
             <Mono>Report</Mono>
-            <Press onPress={pickFile} style={styles.filePicker}>
-              <Text style={styles.filePickerLabel}>{draft.file || 'Attach a photo or a file'}</Text>
-            </Press>
-            {draft.file ? <Text style={styles.fileHint}>The file name is saved on this phone. The file itself stays where it was picked from.</Text> : null}
+            {(() => {
+              // the file this record will have once saved: a new upload, else the one it already has
+              const current = draft.upload || (!draft.removeAttachment ? draft.attachment : null);
+              if (uploadPct != null) {
+                return (
+                  <View style={styles.fileRow}>
+                    <ActivityIndicator color={C.brand} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fileName}>Uploading… {Math.round(uploadPct * 100)}%</Text>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${Math.round(uploadPct * 100)}%` }]} />
+                      </View>
+                    </View>
+                  </View>
+                );
+              }
+              if (current) {
+                return (
+                  <>
+                    <View style={styles.fileRow}>
+                      <FileGlyph color={C.brand} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {current.name}
+                        </Text>
+                        <Text style={styles.fileMeta}>
+                          {sizeLabel(current.size)} · {draft.upload ? 'uploaded, saved with this record' : 'saved'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.fileActions}>
+                      <Btn kind="quiet" style={styles.fileActionBtn} onClick={pickFile}>
+                        Replace
+                      </Btn>
+                      <Btn kind="quiet" style={styles.fileActionBtn} textStyle={{ color: C.stage2 }} onClick={removeFile}>
+                        Remove
+                      </Btn>
+                    </View>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <Press onPress={pickFile} style={styles.filePicker}>
+                    <FileGlyph />
+                    <Text style={styles.filePickerLabel}>Attach a photo or PDF</Text>
+                    <Text style={styles.fileHint}>Up to {MAX_ATTACHMENT_MB} MB · kept safely with your record</Text>
+                  </Press>
+                  {draft.file && !draft.removeAttachment ? (
+                    <Text style={styles.fileHint}>Earlier only the name “{draft.file}” was noted — the file itself wasn’t saved. Attach it again to keep a copy.</Text>
+                  ) : null}
+                </>
+              );
+            })()}
+            {fileError ? <Text style={[styles.fileHint, { color: C.stage2 }]}>{fileError}</Text> : null}
           </View>
-          <Btn style={{ marginTop: 22, paddingVertical: 18 }} disabled={!draft.title.trim() || saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save to medical history'}
+          <Btn style={{ marginTop: 22, paddingVertical: 18 }} disabled={!draft.title.trim() || saving || uploadPct != null} onClick={save}>
+            {saving ? 'Saving…' : uploadPct != null ? 'Waiting for the upload…' : 'Save to medical history'}
           </Btn>
         </Card>
       </ScrollView>
@@ -298,10 +391,30 @@ export default function HistoryScreen() {
             <Line k="What it showed" v={r.details} />
             <Line k="Doctor" v={r.doctor} />
             <Line k="Hospital" v={r.hospital} />
-            <Line k="Report" v={r.file} />
+            {r.attachment ? null : <Line k="Report" v={r.file ? `${r.file} (name only — the file wasn't saved)` : ''} />}
             <Line k="Notes" v={r.notes} />
           </View>
+          {r.attachment && (
+            <Press onPress={() => openFile(r)} style={styles.viewFile} accessibilityLabel={`Open ${r.attachment.name}`}>
+              <FileGlyph color={C.brand} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.fileName} numberOfLines={1}>
+                  {r.attachment.name}
+                </Text>
+                <Text style={styles.fileMeta}>
+                  {r.attachment.type === 'application/pdf' ? 'PDF' : 'Photo'} · {sizeLabel(r.attachment.size)}
+                </Text>
+              </View>
+              <Text style={styles.viewFileLabel}>View report</Text>
+            </Press>
+          )}
         </Card>
+        {viewing && <ReportViewer record={viewing} getUrl={recordFileUrl} onClose={() => setViewing(null)} />}
+        {toast ? (
+          <View style={[styles.toastBanner, { marginTop: 10, marginBottom: 0 }]}>
+            <Text style={styles.toastText}>{toast}</Text>
+          </View>
+        ) : null}
 
         {r.medName && (
           <Card style={{ marginTop: 10, padding: 20 }}>
@@ -372,7 +485,7 @@ export default function HistoryScreen() {
       {shown.length === 0 && (
         <Card style={{ marginTop: 14, padding: 20 }}>
           <Text style={styles.emptyTitle}>{items.length ? 'Nothing matches' : 'Your history is empty'}</Text>
-          <Text style={styles.emptySub}>{items.length ? 'Try another word or clear the filter.' : 'Add your past tests, diagnoses, procedures and hospital stays. They stay on this phone.'}</Text>
+          <Text style={styles.emptySub}>{items.length ? 'Try another word or clear the filter.' : 'Add your past tests, diagnoses, procedures and hospital stays, with their reports. They’re saved safely to your account.'}</Text>
         </Card>
       )}
 
@@ -433,9 +546,18 @@ const styles = StyleSheet.create({
   fieldInputMulti: { minHeight: 84, textAlignVertical: 'top' },
   medSectionHeader: { marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: C.hair },
   medSectionHint: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2, marginTop: 6, lineHeight: 21 },
-  filePicker: { marginTop: 8, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', borderRadius: 14, padding: 18, alignItems: 'center', backgroundColor: C.card },
+  filePicker: { marginTop: 8, borderWidth: 1, borderColor: C.hair, borderStyle: 'dashed', borderRadius: 14, padding: 18, alignItems: 'center', gap: 6, backgroundColor: C.card },
   filePickerLabel: { fontFamily: SANS.semibold, fontSize: 16, color: C.ink },
-  fileHint: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, marginTop: 8, lineHeight: 21 },
+  fileHint: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, marginTop: 8, lineHeight: 21, textAlign: 'center' },
+  fileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, borderWidth: 1, borderColor: C.hair, borderRadius: 14, padding: 14, backgroundColor: C.card },
+  fileName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink },
+  fileMeta: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink3, marginTop: 2 },
+  fileActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  fileActionBtn: { flex: 1, paddingVertical: 12 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(22,36,28,0.08)', marginTop: 8, overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: C.brand },
+  viewFile: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, borderWidth: 1, borderColor: C.hair, borderRadius: 14, padding: 14, backgroundColor: 'rgba(22,163,74,0.06)' },
+  viewFileLabel: { fontFamily: SANS.semibold, fontSize: 15, color: C.brand },
   detailLine: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
   detailValue: { fontFamily: SANS.regular, fontSize: 16.5, color: C.ink, marginTop: 5, lineHeight: 24 },
   detailTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },

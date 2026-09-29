@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, DeviceEventEmitter, Modal, StyleSheet, Text, View } from 'react-native';
+import { AppState, DeviceEventEmitter, Linking, Modal, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../../theme/colors';
 import { SANS, MONO } from '../../theme/typography';
@@ -77,6 +77,8 @@ export default function SosLayer() {
       ? `${who} pressed SOS`
       : `${who}'s phone detected a fall`;
   const myState = local[alert.id] || alert.myState;
+  const mapsUrl = alert.location?.mapsUrl?.startsWith('https://www.google.com/maps/') ? alert.location.mapsUrl : null;
+  const accuracy = alert.location?.accuracy != null ? `within ~${Math.round(alert.location.accuracy)} m` : '';
 
   const act = (fn, state) => {
     setLocal(l => ({ ...l, [alert.id]: state }));
@@ -113,7 +115,18 @@ export default function SosLayer() {
           </View>
         )}
 
+        {alert.mine && (
+          <Text style={styles.locNote}>{mapsUrl ? `Your location was shared${accuracy ? ` · ${accuracy}` : ''}` :"Your location couldn't be shared"}</Text>
+        )}
+
         <View style={{ flex: 1 }} />
+
+        {!alert.mine && mapsUrl && (
+          <Press onPress={() => Linking.openURL(mapsUrl).catch(() => {})} style={[styles.secondary, styles.locBtn]}>
+            <Text style={styles.secondaryLabel}>Open location in Google Maps</Text>
+            {accuracy ? <Text style={styles.locSub}>{accuracy}</Text> : null}
+          </Press>
+        )}
 
         {alert.mine ? (
           <Press onPress={() => act(cancelMySos, 'cancelling')} disabled={myState === 'cancelling'} style={styles.primary}>
@@ -153,4 +166,7 @@ const styles = StyleSheet.create({
   primaryLabel: { fontFamily: SANS.bold, fontSize: 17, color: C.crisis },
   secondary: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 10 },
   secondaryLabel: { fontFamily: SANS.semibold, fontSize: 16, color: '#FFFFFF' },
+  locBtn: { marginTop: 0, marginBottom: 10 },
+  locSub: { fontFamily: MONO.regular, fontSize: 12, letterSpacing: 1, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  locNote: { fontFamily: SANS.regular, fontSize: 14.5, color: 'rgba(255,255,255,0.8)', marginTop: 16, textAlign: 'center' },
 });

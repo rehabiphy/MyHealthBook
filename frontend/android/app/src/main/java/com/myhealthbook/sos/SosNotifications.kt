@@ -94,11 +94,17 @@ object SosNotifications {
     return PendingIntent.getBroadcast(ctx, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
   }
 
+  /** Opens a Google Maps link — in the Maps app when it's installed, the browser otherwise. */
+  fun mapsIntent(ctx: Context, mapsUrl: String, requestCode: Int): PendingIntent {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return PendingIntent.getActivity(ctx, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+  }
+
   fun base(ctx: Context, channel: String): NotificationCompat.Builder =
     NotificationCompat.Builder(ctx, channel).setSmallIcon(R.drawable.ic_sos_notification).setColor(0xFFE11D48.toInt())
 
   /** A quiet one-off update, one per alert so "cancelled" replaces "not answered" rather than stacking. */
-  fun postInfo(ctx: Context, alertId: String, title: String, text: String) {
+  fun postInfo(ctx: Context, alertId: String, title: String, text: String, mapsUrl: String? = null) {
     ensureChannels(ctx)
     val n = base(ctx, CH_INFO)
       .setContentTitle(title)
@@ -106,6 +112,7 @@ object SosNotifications {
       .setStyle(NotificationCompat.BigTextStyle().bigText(text))
       .setContentIntent(openAppIntent(ctx, null, alertId.hashCode()))
       .setAutoCancel(true)
+      .apply { if (mapsUrl != null) addAction(0, "Open location", mapsIntent(ctx, mapsUrl, alertId.hashCode() + 1)) }
       .build()
     notify(ctx, infoId(alertId), n)
   }

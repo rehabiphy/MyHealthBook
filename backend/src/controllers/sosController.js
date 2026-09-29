@@ -10,6 +10,33 @@ const PUSH_TTL_MS = 10 * 60 * 1000;
 
 const expiryTimers = new Map(); // alertId → timeout that ends it at expiresAt
 
+/* The phone's { lat, lng, accuracy, at } from the request body, or null
+   if it's missing or not a real coordinate — an SOS still goes out without one. */
+function parseLocation(raw) {
+  const lat = Number(raw?.lat);
+  const lng = Number(raw?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const accuracy = Number(raw.accuracy);
+  const at = raw.at != null ? new Date(Number(raw.at)) : null;
+  return {
+    lat,
+    lng,
+    accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null,
+    at: at && !Number.isNaN(at.getTime()) ? at : null,
+  };
+}
+
+// opens the Google Maps app on Android (the browser elsewhere) with a pin on the spot
+const mapsUrlOf = loc => (loc ? `https://www.google.com/maps/search/?api=1&query=${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}` : null);
+
+// the location fields every SOS push carries (empty strings when there's no location)
+const locationPush = loc => ({
+  mapsUrl: mapsUrlOf(loc),
+  lat: loc?.lat,
+  lng: loc?.lng,
+  accuracy: loc?.accuracy != null ? Math.round(loc.accuracy) : null,
+});
+
 const personOf = u => (u ? { id: u._id.toString(), name: u.name, username: u.username || null } : null);
 
 /* Everyone linked with `userId` by an accepted family link, in either
@@ -61,6 +88,7 @@ function serialize(alert, me) {
     createdAt: alert.createdAt,
     expiresAt: alert.expiresAt,
     endedAt: alert.endedAt,
+    location: alert.location ? { ...alert.location, mapsUrl: mapsUrlOf(alert.location) } : null,
   };
   if (mine) {
     out.recipients = alert.recipients.map(r => ({ ...refPerson(r.userId), state: r.state, at: r.at }));
@@ -82,7 +110,14 @@ async function endAlert(alertId, status) {
   if (!alert) return null;
   await pushTo(
     alert.recipients.map(r => r.userId),
-    { type: 'sos_end', alertId: alert._id, reason: status, fromName: alert.userId?.name, sentAt: alert.createdAt.getTime() },
+    {
+      type: 'sos_end',
+      alertId: alert._id,
+      reason: status,
+      fromName: alert.userId?.name,
+      sentAt: alert.createdAt.getTime(),
+      ...locationPush(alert.location),
+    },
   );
   return alert;
 }
@@ -108,15 +143,21 @@ async function findAlert(id) {
   return SosAlert.findById(id);
 }
 
-/* POST /api/sos  { trigger: 'fall' | 'manual' }
+/* POST /api/sos  { trigger: 'fall' | 'manual', location?: { lat, lng, accuracy, at } }
    One active alert per person: a second fall inside the window returns
    the one already ringing instead of paging the family again. */
 export async function raiseSos(req, res) {
   const me = req.user.id;
   const trigger = req.body?.trigger === 'manual' ? 'manual' : 'fall';
+  const location = parseLocation(req.body?.location);
 
   const current = await SosAlert.findOne({ userId: me, status: 'active', expiresAt: { $gt: new Date() } }).populate('recipients.userId', 'name username');
   if (current) {
+    // the one already ringing had no location — keep this one for the follow-up notes and the app
+    if (location && !current.location) {
+      current.location = location;
+      await current.save();
+    }
     return res.json({ success: true, alert: serialize(current.toObject(), me), reused: true });
   }
 
@@ -131,6 +172,7 @@ export async function raiseSos(req, res) {
     trigger,
     expiresAt: new Date(Date.now() + SOS_WINDOW_MS),
     recipients: family.map(userId => ({ userId })),
+    location,
   });
   scheduleExpiry(alert);
 
@@ -142,6 +184,7 @@ export async function raiseSos(req, res) {
     fromUsername: sender.username,
     sentAt: alert.createdAt.getTime(),
     expiresAt: alert.expiresAt.getTime(),
+    ...locationPush(location),
   });
 
   await alert.populate('recipients.userId', 'name username');

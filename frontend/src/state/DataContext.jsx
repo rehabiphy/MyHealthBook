@@ -5,6 +5,8 @@ import * as readingsApi from '../lib/readingsApi';
 import * as recordsApi from '../lib/recordsApi';
 import * as medsApi from '../lib/medsApi';
 import * as profileApi from '../lib/profileApi';
+import { useMedReminderSync } from '../lib/medReminders';
+import { uploadAttachment } from '../lib/attachments';
 
 export const EMPTY = {
   profile: { name: '', age: '', sex: '', heightCm: '', diet: 'veg' },
@@ -50,7 +52,7 @@ const ALL_SCOPES = ['readings', 'medicines', 'records', 'health'];
    they shared are loaded. Wrapping the existing screens in one of these
    is how the Family page shows — and edits — someone else's data. */
 export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES }) {
-  const { token: sessionToken } = useAuth();
+  const { token: sessionToken, user, ready: authReady } = useAuth();
   const scopeKey = scopes.join(',');
   // stable while the inputs are, so it can sit in effect deps
   const token = useMemo(() => (familyOwner && sessionToken ? { token: sessionToken, familyOwner } : sessionToken), [sessionToken, familyOwner]);
@@ -62,6 +64,8 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
      for the signed-out state first), so anything that must see the real
      profile — like the spoken launch greeting — waits on this instead. */
   const [loadedToken, setLoadedToken] = useState(null);
+  // the token whose medicines + medicine settings actually came back — offline, the reminder schedule is left alone
+  const [medsToken, setMedsToken] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -97,6 +101,7 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
           ...(settings && { medSettings: settings.settings }),
           ...(profile && { profile: profile.profile, health: profile.health }),
         }));
+        if (meds && settings) setMedsToken(token);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -148,14 +153,18 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
 
   // ---- Records ----
 
+  /* draft.upload — a report file just uploaded to S3 ({ key, name }) to attach;
+     draft.removeAttachment — take the current one off. Otherwise the file is left as it is. */
   const addOrUpdateHistory = async draft => {
+    const { upload, removeAttachment, attachment, ...fields } = draft;
+    const payload = { ...fields, ...(upload ? { attachment: { key: upload.key, name: upload.name } } : removeAttachment ? { attachment: null } : {}) };
     const exists = data.history.some(r => r.id === draft.id);
     if (exists) {
-      const res = await recordsApi.updateRecord(draft.id, draft, token);
+      const res = await recordsApi.updateRecord(draft.id, payload, token);
       setData(d => ({ ...d, history: d.history.map(r => (r.id === draft.id ? res.record : r)) }));
       return res.record;
     }
-    const res = await recordsApi.createRecord(draft, token);
+    const res = await recordsApi.createRecord(payload, token);
     setData(d => ({ ...d, history: [res.record, ...d.history] }));
     return res.record;
   };
@@ -164,6 +173,10 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
     await recordsApi.deleteRecord(id, token);
     setData(d => ({ ...d, history: d.history.filter(r => r.id !== id) }));
   };
+
+  // report files: uploaded before the record is saved, opened through a short-lived link
+  const uploadRecordFile = (file, onProgress) => uploadAttachment(file, token, onProgress);
+  const recordFileUrl = async id => (await recordsApi.getAttachmentUrl(id, token)).url;
 
   const promoteHistoryToMedicine = async record => {
     const medRes = await medsApi.createMedicine(
@@ -239,6 +252,8 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
     deleteAllReadings,
     addOrUpdateHistory,
     deleteHistory,
+    uploadRecordFile,
+    recordFileUrl,
     promoteHistoryToMedicine,
     addMedicine,
     deleteMedicine,
@@ -251,6 +266,16 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
   };
 
   const loaded = Boolean(token) && loadedToken === token;
+
+  // medicine reminders on this phone follow the signed-in user's own medicines (lib/medReminders.js)
+  useMedReminderSync({
+    data,
+    name: data.profile?.name || user?.name,
+    own: !familyOwner,
+    // null until the saved session is restored — only a real sign-out clears the schedule, not a cold start
+    signedIn: authReady ? Boolean(sessionToken) : null,
+    loaded: Boolean(token) && medsToken === token,
+  });
 
   return <DataContext.Provider value={{ data, setData, ready, loading, loaded, familyOwner, ...actions }}>{children}</DataContext.Provider>;
 }

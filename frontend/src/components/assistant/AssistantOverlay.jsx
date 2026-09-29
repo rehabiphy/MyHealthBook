@@ -55,6 +55,7 @@ const UI = {
     ],
     trySaying: 'Try saying',
     listening: 'Listening…',
+    speakClearly: 'Please speak clearly and a little louder.',
     thinking: 'Thinking…',
     tapAndSpeak: 'Tap the mic and speak',
     typeInstead: 'Type what you want to record',
@@ -75,6 +76,7 @@ const UI = {
     ],
     trySaying: 'ऐसे बोलें',
     listening: 'सुन रहा हूँ…',
+    speakClearly: 'कृपया साफ़ और थोड़ा ज़ोर से बोलें।',
     thinking: 'समझ रहा हूँ…',
     tapAndSpeak: 'माइक दबाएँ और बोलें',
     typeInstead: 'जो दर्ज करना है, लिखें',
@@ -518,6 +520,7 @@ export default function AssistantOverlay({ visible, onClose, go }) {
 
           <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 6 }} keyboardShouldPersistTaps="handled">
             <Text style={[styles.status, phase !== 'idle' && { color: C.brand2 }]}>{status}</Text>
+            {speech.listening && <Text style={styles.speakHint}>{ui.speakClearly}</Text>}
 
             {!!liveText && <Text style={styles.heard}>“{liveText}”</Text>}
 
@@ -757,6 +760,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
   status: { fontFamily: MONO.medium, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', color: C.ink3, marginTop: 8 },
   heard: { fontFamily: SANS.regular, fontSize: 20, lineHeight: 28, color: C.ink2, marginTop: 10 },
+  speakHint: { fontFamily: SANS.medium, fontSize: 16, lineHeight: 22, color: C.ink2, marginTop: 6 },
   aiBadge: { fontFamily: MONO.medium, fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase', color: '#6366F1', marginBottom: 6 },
   say: { fontFamily: SANS.semibold, fontSize: 26, lineHeight: 33, letterSpacing: -0.5, color: C.ink, marginTop: 4 },
   saySmall: { fontSize: 20, lineHeight: 29, fontFamily: SANS.medium },

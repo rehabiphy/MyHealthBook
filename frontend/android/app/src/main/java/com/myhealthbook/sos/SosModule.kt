@@ -79,6 +79,8 @@ class SosModule(private val reactContext: ReactApplicationContext) : ReactContex
         putBoolean("fallRunning", FallDetectionService.running)
         putBoolean("batteryUnrestricted", power.isIgnoringBatteryOptimizations(reactContext.packageName))
         putBoolean("fullScreenAllowed", Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent())
+        putBoolean("locationAllowed", SosLocation.hasPermission(reactContext))
+        putBoolean("locationAlways", SosLocation.hasBackgroundPermission(reactContext))
       },
     )
   }
@@ -94,9 +96,15 @@ class SosModule(private val reactContext: ReactApplicationContext) : ReactContex
         trigger = data.getString("trigger") ?: "fall",
         sentAt = data.getString("sentAt")?.toLongOrNull() ?: System.currentTimeMillis(),
         expiresAt = data.getString("expiresAt")?.toLongOrNull() ?: (System.currentTimeMillis() + 30_000L),
+        mapsUrl = mapsUrlOf(data),
       ),
     )
   }
+
+  // only ever a Google Maps https link from our server — anything else is dropped rather than opened
+  private fun mapsUrlOf(data: ReadableMap): String? =
+    (if (data.hasKey("mapsUrl")) data.getString("mapsUrl") else null)
+      ?.takeIf { it.startsWith("https://www.google.com/maps/") }
 
   /** A type "sos_end" push — the sender cancelled or the window ran out. */
   @ReactMethod
@@ -107,6 +115,7 @@ class SosModule(private val reactContext: ReactApplicationContext) : ReactContex
       data.getString("reason") ?: "expired",
       data.getString("fromName") ?: "Family",
       data.getString("sentAt")?.toLongOrNull() ?: System.currentTimeMillis(),
+      mapsUrlOf(data),
     )
   }
 

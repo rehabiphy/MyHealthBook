@@ -39,8 +39,13 @@ export default function MedsScreen() {
   const [busy, setBusy] = useState([]); // dose ids with a save in flight — blocks double taps
   const [timePickerFor, setTimePickerFor] = useState(null);
   const [note, setNote] = useState('');
+  const [leadDraft, setLeadDraft] = useState(null); // picked but not saved yet; null = showing the saved one
+  const [savingLead, setSavingLead] = useState(false);
 
   const settings = data.medSettings || { times: {}, lead: 10 };
+  const savedLead = settings.lead ?? 10;
+  const lead = leadDraft ?? savedLead;
+  const leadDirty = lead !== savedLead;
   const times = { ...Object.fromEntries(SLOTS.map(s => [s.key, s.time])), ...(settings.times || {}) };
   const doses = dosesToday(data);
   const adh = adherence(data, 7);
@@ -54,6 +59,20 @@ export default function MedsScreen() {
       await updateMedSettings(patch);
     } catch (err) {
       say(err.message);
+    }
+  };
+
+  const saveLead = async () => {
+    if (!leadDirty || savingLead) return;
+    setSavingLead(true);
+    try {
+      await updateMedSettings({ lead });
+      setLeadDraft(null);
+      say(lead ? `Reminder set for ${lead} min before each dose` : 'Reminder set for the dose time');
+    } catch (err) {
+      say(err.message);
+    } finally {
+      setSavingLead(false);
     }
   };
 
@@ -411,8 +430,8 @@ export default function MedsScreen() {
           <Mono>Remind me before the dose</Mono>
           <View style={{ marginTop: 10 }}>
             <Seg
-              value={String(settings.lead ?? 10)}
-              onChange={v => setSettings({ lead: +v })}
+              value={String(lead)}
+              onChange={v => setLeadDraft(+v)}
               options={[
                 { value: '0', label: 'On time' },
                 { value: '5', label: '5 min' },
@@ -422,7 +441,12 @@ export default function MedsScreen() {
             />
           </View>
         </View>
-        <Text style={styles.hintText}>Doses due and refills running low show as a banner while the app is open. Alerts that wake the phone with the app closed aren't part of this build yet.</Text>
+        <Text style={styles.hintText}>
+          Choose when you’d like to be reminded about your medicine dose. Notifications will alert you at your selected time, even when the app is closed.
+        </Text>
+        <Btn style={styles.saveBtn} disabled={!leadDirty || savingLead} onClick={saveLead}>
+          {savingLead ? 'Saving…' : leadDirty ? 'Save reminder' : 'Saved'}
+        </Btn>
       </Card>
 
       <Card style={{ marginTop: 10 }}>
@@ -466,5 +490,6 @@ const styles = StyleSheet.create({
   restartLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   inactiveActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   deleteBtn: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  saveBtn: { marginTop: 16 },
   importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
 });

@@ -340,11 +340,15 @@ export async function forgotPasswordReset(req, res) {
 }
 
 export async function registerFcmToken(req, res) {
-  const { token } = req.body || {};
+  const { token, tzOffsetMin } = req.body || {};
   if (!isNonEmptyString(token, { max: 400 })) {
     return res.status(400).json({ success: false, message: 'token is required' });
   }
-  await User.findByIdAndUpdate(req.user.id, { $addToSet: { fcmTokens: token } });
+  const tz = Number(tzOffsetMin);
+  const update = { $addToSet: { fcmTokens: token } };
+  // real offsets run from UTC-12 to UTC+14
+  if (tzOffsetMin != null && Number.isInteger(tz) && tz >= -720 && tz <= 840) update.$set = { tzOffsetMin: tz };
+  await User.findByIdAndUpdate(req.user.id, update);
   return res.json({ success: true });
 }
 

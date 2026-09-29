@@ -14,6 +14,17 @@ const recipientSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// where the sender's phone was when it raised the SOS (as reported by the phone)
+const locationSchema = new mongoose.Schema(
+  {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+    accuracy: { type: Number, default: null }, // metres
+    at: { type: Date, default: null }, // when the phone got the fix — can be older than the alert
+  },
+  { _id: false },
+);
+
 /* One SOS raised by `userId` — from a detected fall, or pressed by hand.
    Recipients are everyone in their family circle at the moment it fired. */
 const sosAlertSchema = new mongoose.Schema(
@@ -24,6 +35,7 @@ const sosAlertSchema = new mongoose.Schema(
     expiresAt: { type: Date, required: true },
     endedAt: { type: Date, default: null },
     recipients: { type: [recipientSchema], default: [] },
+    location: { type: locationSchema, default: null },
   },
   { timestamps: true },
 );

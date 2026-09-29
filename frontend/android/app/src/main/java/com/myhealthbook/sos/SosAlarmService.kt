@@ -28,7 +28,15 @@ import kotlin.concurrent.thread
    not. Silence / Dismiss only affect this phone; the sender is told via
    /ack so they can see who has seen it. */
 class SosAlarmService : Service() {
-  data class Alert(val id: String, val fromName: String, val trigger: String, val sentAt: Long, val expiresAt: Long, val test: Boolean = false)
+  data class Alert(
+    val id: String,
+    val fromName: String,
+    val trigger: String,
+    val sentAt: Long,
+    val expiresAt: Long,
+    val test: Boolean = false,
+    val mapsUrl: String? = null, // Google Maps link to where the sender's phone was, when it had a fix
+  )
 
   companion object {
     private const val ACTION_START = "com.myhealthbook.sos.START_ALARM"
@@ -44,7 +52,7 @@ class SosAlarmService : Service() {
     fun start(ctx: Context, alert: Alert) {
       if (alert.expiresAt <= System.currentTimeMillis()) {
         // arrived after the window (phone was offline) — tell, don't ring
-        SosNotifications.postInfo(ctx, alert.id, "Missed SOS from ${alert.fromName}", "${whatHappened(alert)} at ${SosNotifications.clock(alert.sentAt)}. Check on them.")
+        SosNotifications.postInfo(ctx, alert.id, "Missed SOS from ${alert.fromName}", "${whatHappened(alert)} at ${SosNotifications.clock(alert.sentAt)}. Check on them.", alert.mapsUrl)
         return
       }
       val intent = Intent(ctx, SosAlarmService::class.java).apply {
@@ -70,13 +78,15 @@ class SosAlarmService : Service() {
     }
 
     /** The sender cancelled it or the window ran out — stop ringing and leave a quiet note. */
-    fun end(ctx: Context, alertId: String, reason: String, fromName: String, sentAt: Long) {
+    fun end(ctx: Context, alertId: String, reason: String, fromName: String, sentAt: Long, mapsUrl: String? = null) {
       main.post { instance?.stopFor(alertId) }
       SosNotifications.cancel(ctx, SosNotifications.ID_ALARM)
       if (reason == "cancelled") {
         SosNotifications.postInfo(ctx, alertId, "$fromName is OK", "$fromName cancelled the SOS from ${SosNotifications.clock(sentAt)}.")
       } else {
-        SosNotifications.postInfo(ctx, alertId, "SOS from $fromName wasn't cancelled", "Their phone raised an SOS at ${SosNotifications.clock(sentAt)} and they didn't call it off. Check on them.")
+        // the moment the family most needs to know where to go
+        val where = if (mapsUrl != null) " Tap Open location to see where their phone was." else ""
+        SosNotifications.postInfo(ctx, alertId, "SOS from $fromName wasn't cancelled", "Their phone raised an SOS at ${SosNotifications.clock(sentAt)} and they didn't call it off. Check on them.$where", mapsUrl)
       }
     }
 
@@ -102,9 +112,13 @@ class SosAlarmService : Service() {
     private fun toJson(a: Alert) = JSONObject()
       .put("id", a.id).put("fromName", a.fromName).put("trigger", a.trigger)
       .put("sentAt", a.sentAt).put("expiresAt", a.expiresAt).put("test", a.test)
+      .apply { if (a.mapsUrl != null) put("mapsUrl", a.mapsUrl) }
 
     private fun fromJson(s: String) = JSONObject(s).let {
-      Alert(it.getString("id"), it.getString("fromName"), it.getString("trigger"), it.getLong("sentAt"), it.getLong("expiresAt"), it.optBoolean("test"))
+      Alert(
+        it.getString("id"), it.getString("fromName"), it.getString("trigger"), it.getLong("sentAt"), it.getLong("expiresAt"), it.optBoolean("test"),
+        it.optString("mapsUrl").takeIf { u -> u.isNotBlank() },
+      )
     }
 
     private fun build(ctx: Context, a: Alert, ringing: Boolean, channel: String = SosNotifications.CH_ALARM): android.app.Notification {
@@ -113,6 +127,7 @@ class SosAlarmService : Service() {
       return SosNotifications.base(ctx, channel)
         .setContentTitle(if (a.test) "Test alarm" else "SOS · ${a.fromName}")
         .setContentText(if (a.test) "This is what your family will hear" else if (ringing) "${whatHappened(a)}. Check on them." else "Alarm silenced · ${whatHappened(a)}")
+        .apply { if (a.mapsUrl != null) addAction(0, "Open location", SosNotifications.mapsIntent(ctx, a.mapsUrl, 13)) }
         .setCategory(NotificationCompat.CATEGORY_ALARM)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -177,7 +192,7 @@ class SosAlarmService : Service() {
     if (current?.id != a.id) return
     stopFor(a.id)
     // the server's "expired" push posts the same note; this covers a phone that doesn't get it
-    if (!a.test) end(this, a.id, "expired", a.fromName, a.sentAt)
+    if (!a.test) end(this, a.id, "expired", a.fromName, a.sentAt, a.mapsUrl)
   }
 
   fun silence() {

@@ -9,6 +9,7 @@ import {
   openAppSettings,
   openBatterySettings,
   openFullScreenSettings,
+  requestSosLocation,
   setFallDetection,
   simulateFall,
   sosSupported,
@@ -61,12 +62,31 @@ export default function SafetyCard() {
       });
       if (!ok) return;
       await requestNotificationPermission();
+      if (!status?.locationAlways) await askLocation();
     }
     try {
       await setFallDetection(value === 'on');
       setNote('');
     } catch (err) {
       setNote(err.message);
+    }
+    load();
+  };
+
+  /* Explains first — Android's own "Allow all the time" screen says
+     nothing about why. Optional: the SOS still goes out without it. */
+  const askLocation = async () => {
+    const ok = await ask({
+      title: 'Share your location in an SOS?',
+      body: 'Your family gets a Google Maps link to where your phone is. A fall usually happens with the app closed, so choose "Allow all the time" on the next screen.',
+      confirmLabel: 'Continue',
+      cancelLabel: 'Skip',
+    });
+    if (!ok) return;
+    try {
+      if ((await requestSosLocation()) === 'blocked') openAppSettings();
+    } catch {
+      // the request itself failed — the check below offers settings
     }
     load();
   };
@@ -107,6 +127,20 @@ export default function SafetyCard() {
           <Text style={styles.checkText}>Your phone may stop fall detection to save battery. Set MyHealthBook to "Don't optimise" / "Unrestricted".</Text>
           <Btn kind="quiet" style={styles.checkBtn} onClick={openBatterySettings}>
             Battery settings
+          </Btn>
+        </View>
+      )}
+
+      {on && status && !status.locationAlways && (
+        <View style={styles.check}>
+          <Text style={styles.checkText}>
+            {status.locationAllowed
+              ? 'Set location to "Allow all the time" so your SOS includes where you are, even with the app closed.'
+              : "Your SOS won't include your location. Allow location so your family gets a Google Maps link to where you are."}
+          </Text>
+          {/* once asked, Android only lets "all the time" be set from the app's settings */}
+          <Btn kind="quiet" style={styles.checkBtn} onClick={status.locationAllowed ? openAppSettings : askLocation}>
+            {status.locationAllowed ? 'Location settings' : 'Allow location'}
           </Btn>
         </View>
       )}

@@ -5,4 +5,6 @@
          mode) — that default was bleeding through BlurView's native
          blur, most visibly at the bottom tab bar. -->
     <color name="app_background">#F4F8F6</color>
+    <!-- accent on notifications Android draws itself (AndroidManifest.xml firebase defaults) -->
+    <color name="notification_green">#16A34A</color>
 </resources>
