@@ -112,9 +112,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  /* Re-fetches the user from the backend — needed after a PayU checkout
-     completes, so the app picks up the new subscription/premiumExpiry
-     without forcing a re-login. */
+  /* Re-fetches the user from the backend, e.g. after the profile
+     changes on another device. (The plan lives in SubscriptionContext.) */
   const refreshUser = async () => {
     if (!token) return;
     const res = await getMe(token);

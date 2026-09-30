@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import HistoryRecord from '../models/HistoryRecord.js';
 import { isNonEmptyString, isOneOf } from '../utils/validators.js';
+import { resolveEntitlement, canAccess, limitOf, FEATURES } from '../utils/entitlements.js';
 import {
   ATTACHMENT_TYPES,
   MAX_ATTACHMENT_BYTES,
@@ -68,6 +69,23 @@ function removeFile(key) {
   deleteObject(key).catch(err => console.warn('Could not delete report file', key, '—', err.message));
 }
 
+/* The Free plan keeps up to limits.documents report files. Past that,
+   every file already stored stays viewable and downloadable — only
+   attaching another one needs Plus. Checked against the record owner's
+   plan (req.user.id is the owner when a family member is acting). */
+async function documentLimitReached(userId) {
+  const ent = await resolveEntitlement(userId);
+  const limit = limitOf(ent, 'documents');
+  if (canAccess(ent, FEATURES.EXTENDED_STORAGE) || limit === null) return null;
+  const count = await HistoryRecord.countDocuments({ userId, attachment: { $ne: null } });
+  if (count < limit) return null;
+  return {
+    success: false,
+    limitReached: 'documents',
+    message: `You have ${count} medical document${count === 1 ? '' : 's'}. The Free plan allows ${limit}. Your existing documents are safe, but adding more requires MyHealthBook Plus.`,
+  };
+}
+
 const attachmentFailure = (res, err) => {
   if (err instanceof AttachmentError) return res.status(400).json({ success: false, message: err.message });
   console.error('Report attachment failed:', err);
@@ -85,7 +103,12 @@ export async function getUploadUrl(req, res) {
   if (!s3Configured()) {
     return res.status(503).json({ success: false, message: "Report uploads aren't set up on the server yet." });
   }
-  const { type, size } = req.body || {};
+  const { type, size, replacing } = req.body || {};
+  // `replacing` only spares a pointless upload — create/update below enforce the limit for real
+  if (!replacing) {
+    const full = await documentLimitReached(req.user.id);
+    if (full) return res.status(403).json(full);
+  }
   if (!ATTACHMENT_TYPES[type]) {
     return res.status(400).json({ success: false, message: 'Please choose a PDF or a photo (JPG, PNG, WEBP or HEIC).' });
   }
@@ -108,6 +131,8 @@ export async function createRecord(req, res) {
 
   let stored = null;
   if (attachment?.key) {
+    const full = await documentLimitReached(req.user.id);
+    if (full) return res.status(403).json(full);
     try {
       stored = await resolveAttachment(req.user.id, attachment);
     } catch (err) {
@@ -156,6 +181,11 @@ export async function updateRecord(req, res) {
       whitelisted.attachment = null;
       oldKey = currentKey;
     } else if (patch.attachment?.key && patch.attachment.key !== currentKey) {
+      // swapping one file for another doesn't add a document; only a record gaining its first file does
+      if (!currentKey) {
+        const full = await documentLimitReached(req.user.id);
+        if (full) return res.status(403).json(full);
+      }
       try {
         whitelisted.attachment = await resolveAttachment(req.user.id, patch.attachment);
       } catch (err) {

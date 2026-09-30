@@ -6,6 +6,16 @@
    decorates; it only ever states a range.
 ══════════════════════════════════════════════════════════════════ */
 
+/* The frosted surface every panel uses (the same wash + white edge as
+   Card), for panels that aren't a Card — lists, tiles, grouped rows.
+   Solid white is kept for things that float over the page: sheets,
+   dialogs, the tab bar. */
+export const GLASS = {
+  backgroundColor: 'rgba(255,255,255,0.2)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.8)',
+};
+
 export const C = {
   paper: '#F4F8F6', // near-neutral ground (AmbientBackground layers soft green glows on top)
   card: 'rgba(255,255,255,0.2)', // neutral frosted glass — real blur (see Card.jsx) does the "glass" work, this is just a light wash, not a tint

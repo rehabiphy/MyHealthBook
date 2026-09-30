@@ -32,17 +32,16 @@ export function monoWeight(weight) {
   return MONO.regular;
 }
 
-/* The uppercase mono caption used everywhere for labels, timestamps
-   and units — the app's signature typographic voice. Sized and
-   weighted for legibility at a glance (elderly-friendly): medium
-   weight instead of regular, and noticeably larger than the original
-   10.5px, which read as too small/faint to read without effort. */
+/* The small caption used everywhere for labels, timestamps and units.
+   Sentence case in the regular sans, not spaced-out uppercase mono:
+   many people using this are reading for an older parent, and
+   uppercase monospace at caption size was the hardest text in the app
+   to read at a glance. (Mono stays for figures inside charts.) */
 export const monoCaption = {
-  fontFamily: MONO.medium,
-  fontSize: 13,
-  lineHeight: 17,
-  letterSpacing: 1,
-  textTransform: 'uppercase',
+  fontFamily: SANS.medium,
+  fontSize: 14,
+  lineHeight: 19,
+  letterSpacing: 0,
 };
 
 /* Android needs an explicit line-height or tightly tracked/large text

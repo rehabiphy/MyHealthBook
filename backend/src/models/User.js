@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     isEmailVerified: { type: Boolean, default: false },
     googleId: { type: String, unique: true, sparse: true },
+    // legacy — the old single "premium" pass. Read once to carry it over into a Subscription (utils/entitlements.js), never written now
     subscription: { type: String, enum: ['free', 'premium'], default: 'free' },
     premiumExpiry: { type: Date, default: null },
     insightsUsedThisMonth: { type: Number, default: 0 },

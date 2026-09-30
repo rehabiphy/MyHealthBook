@@ -9,6 +9,6 @@ export const updateRecord = (id, patch, token) => apiRequest(`/api/records/${id}
 export const deleteRecord = (id, token) => apiRequest(`/api/records/${id}`, { method: 'DELETE', token });
 
 /* Report files live in S3 — see lib/attachments.js. */
-export const getUploadUrl = ({ type, size }, token) => apiRequest('/api/records/attachments/upload-url', { body: { type, size }, token });
+export const getUploadUrl = ({ type, size, replacing }, token) => apiRequest('/api/records/attachments/upload-url', { body: { type, size, replacing }, token });
 
 export const getAttachmentUrl = (id, token) => apiRequest(`/api/records/${id}/attachment`, { method: 'GET', token });

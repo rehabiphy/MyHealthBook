@@ -1,11 +1,10 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from '@react-native-community/blur';
 import LinearGradient from 'react-native-linear-gradient';
 import { C } from '../theme/colors';
 import { GRAD } from '../theme/gradients';
-import { MONO } from '../theme/typography';
+import { SANS } from '../theme/typography';
 import Ico from '../components/icons/NavIcons';
 import Press from '../components/atoms/Press';
 
@@ -17,121 +16,90 @@ const TABS = [
   { key: 'me', label: 'Profile' },
 ];
 
-// routes without a button of their own light up the tab they're reached from
-const PARENT_TAB = { health: 'home', family: 'me', familyMember: 'me' };
+// pages without a tab of their own light up the tab they belong to
+const PARENT_TAB = {
+  health: 'home',
+  trends: 'home',
+  insights: 'home',
+  learn: 'home',
+  family: 'me',
+  familyMember: 'me',
+  premium: 'me',
+  subscription: 'me',
+  profileDetails: 'me',
+  notificationSettings: 'me',
+  safety: 'me',
+  dataReports: 'me',
+};
 
-/* A floating glass pill, like iOS's tab bar — inset from all four
-   edges (rather than flush with the screen) with a fully rounded
-   stadium shape, so the ambient background is visible all the way
-   around it. It sits on top of the scene as an absolutely-positioned
-   overlay (Tab.Navigator's own tab bar is suppressed via
-   `tabBar={() => null}` in RootNavigator, and this is rendered
-   separately over it) rather than in normal layout flow below the
-   scene, so card content actually scrolls underneath it instead of
-   stopping above a solid bar.
+// the bar's own height above the bottom safe-area inset
+const BAR_HEIGHT = 64;
 
-   Unlike Card (a flat tint, many instances per screen, real blur
-   there compounds), this is exactly ONE always-mounted instance
-   sitting over genuinely detailed content (text/icons scrolling
-   past), not a smooth gradient — a flat low-opacity tint let that
-   text show through sharply enough to visually collide with the tab
-   labels. A real blur is what turns it into an indistinct wash
-   instead, which is the one case here where that trade-off is safe. */
-/* The bar floats as an absolutely-positioned overlay (see the note
-   above), so it never reserves layout space of its own — every
-   screen's ScrollView has to pad its content bottom by however far
-   the bar's own top edge sits above the screen bottom, or the last
-   bit of content ends up hidden behind it. That distance depends on
-   `insets.bottom`, which some Android OEMs (gesture-nav OnePlus
-   devices among them) report much larger than the ~12px floor this
-   file otherwise assumes — a screen using a hardcoded pixel constant
-   instead of this hook stays wrong on exactly those devices. */
-export function useTabBarClearance() {
+/* How far above the screen bottom the bar's top edge sits — what
+   anything floating (dose banner, voice orb, toasts) must clear. */
+export function useTabBarTop() {
   const insets = useSafeAreaInsets();
-  return Math.max(insets.bottom, 12) + 110;
+  return BAR_HEIGHT + Math.max(insets.bottom, 8);
 }
 
+// how much every scrolling page pads its end, so the last item isn't under the bar
+export function useTabBarClearance() {
+  return useTabBarTop() + 28;
+}
+
+/* Docked to the bottom edge (not floating), solid white, with plain
+   sentence-case labels — the most familiar pattern there is, and the
+   easiest to read. The active tab gets the app's one gradient. */
 export default function TabBar({ activeKey, onNavigate }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <>
-      {/* The pill only blurs what's directly behind its own rounded
-          shape — the inset margins around it (and its rounded corner
-          cutouts) aren't covered by that at all, so content scrolling
-          into the gap next to the pill showed up fully sharp, right
-          beside the blurred glass. This wider, unclipped fade softens
-          everything approaching the bottom edge — pill included or
-          not — so nothing near it is ever sharp. */}
-      <LinearGradient
-        pointerEvents="none"
-        // same pale mint as the bottom of AmbientBackground, so the fade reads as the page, not a grey band
-        colors={['rgba(238,248,242,0)', 'rgba(238,248,242,0.85)', 'rgba(238,248,242,0.97)']}
-        locations={[0, 0.55, 1]}
-        style={styles.fade}
-      />
-      <View style={[styles.wrap, Platform.OS === 'android' && styles.wrapAndroid, { bottom: Math.max(insets.bottom, 12) + 10 }]}>
-        {/* Live blur is cheap on iOS (a system effect) but on Android it
-            re-captures and blurs the screen on every frame — while
-            scrolling, and whenever anything animates — which made every
-            page scroll laggy. Android gets a solid white-to-mint surface
-            with a soft green-tinted shadow instead, so it still floats. */}
-        {Platform.OS === 'ios' ? (
-          <BlurView style={StyleSheet.absoluteFill} blurAmount={24} overlayColor="rgba(255,255,255,0.4)" reducedTransparencyFallbackColor={C.cardSolid} />
-        ) : (
-          <LinearGradient colors={['#FFFFFF', '#F0FAF4']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
-        )}
-        <View style={styles.row}>
-          {TABS.map(t => {
-            const on = activeKey === t.key || PARENT_TAB[activeKey] === t.key;
-            return (
-              <Press key={t.key} onPress={() => onNavigate(t.key)} style={styles.tabBtn}>
-                {on ? (
-                  <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.iconCircle}>
-                    <Ico name={t.key} on />
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.iconCircle}>
-                    <Ico name={t.key} on={false} />
-                  </View>
-                )}
-                <Text style={[styles.label, { color: on ? C.brand : C.ink3 }]}>{t.label}</Text>
-              </Press>
-            );
-          })}
-        </View>
-      </View>
-    </>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      {TABS.map(t => {
+        const on = activeKey === t.key || PARENT_TAB[activeKey] === t.key;
+        return (
+          <Press key={t.key} onPress={() => onNavigate(t.key)} style={styles.tabBtn} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t.label}>
+            {on ? (
+              <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.pill}>
+                <Ico name={t.key} on />
+              </LinearGradient>
+            ) : (
+              <View style={styles.pill}>
+                <Ico name={t.key} on={false} />
+              </View>
+            )}
+            {/* one line on every phone: shrinks to fit a narrow screen, and caps how far the
+                system font-size setting can grow it (some phones, e.g. OnePlus, default large) */}
+            <Text style={[styles.label, on && styles.labelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.15}>
+              {t.label}
+            </Text>
+          </Press>
+        );
+      })}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fade: {
+  bar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 150,
-  },
-  wrap: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    borderRadius: 34,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    paddingVertical: 9,
-    paddingHorizontal: 6,
-    overflow: 'hidden',
-  },
-  wrapAndroid: {
-    borderColor: 'rgba(22,163,74,0.16)',
-    backgroundColor: '#FFFFFF', // elevation needs an opaque background to cast its shadow
-    elevation: 12,
+    flexDirection: 'row',
+    paddingTop: 8,
+    paddingHorizontal: 2,
+    backgroundColor: C.cardSolid,
+    borderTopWidth: 1,
+    borderTopColor: C.hair,
+    elevation: 16,
     shadowColor: '#16A34A',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -2 },
   },
-  row: { flexDirection: 'row', gap: 4 },
-  tabBtn: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
-  iconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: MONO.medium, fontSize: 11.5, letterSpacing: 0.3, textTransform: 'uppercase' },
+  tabBtn: { flex: 1, minWidth: 0, alignItems: 'center', gap: 3, height: BAR_HEIGHT - 8, paddingHorizontal: 2 },
+  pill: { width: 48, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  label: { fontFamily: SANS.medium, fontSize: 12.5, color: C.ink3, textAlign: 'center', alignSelf: 'stretch' },
+  labelOn: { fontFamily: SANS.bold, color: C.brand2 },
 });

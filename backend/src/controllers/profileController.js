@@ -41,6 +41,20 @@ export async function updateProfile(req, res) {
   return res.json({ success: true, ...publicProfile(profile) });
 }
 
+const MAX_UPCOMING = 50;
+const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+/* Follow-ups / appointments — only these fields, only this many, so the
+   Mixed column can't be used to stash arbitrary data. */
+function cleanUpcoming(list) {
+  return list.slice(0, MAX_UPCOMING).flatMap(u => {
+    const title = str(u?.title, 200);
+    const date = Number(u?.date);
+    if (!title || !Number.isFinite(date)) return [];
+    return [{ id: str(u.id, 40) || Math.random().toString(36).slice(2, 10), title, date, doctor: str(u.doctor, 150), place: str(u.place, 150) }];
+  });
+}
+
 export async function updateHealth(req, res) {
   const { conditions, allergies, bloodGroup, upcoming } = req.body || {};
 
@@ -55,7 +69,7 @@ export async function updateHealth(req, res) {
   if (conditions !== undefined) patch['health.conditions'] = conditions;
   if (allergies !== undefined) patch['health.allergies'] = String(allergies);
   if (bloodGroup !== undefined) patch['health.bloodGroup'] = String(bloodGroup);
-  if (upcoming !== undefined) patch['health.upcoming'] = upcoming;
+  if (upcoming !== undefined) patch['health.upcoming'] = cleanUpcoming(upcoming);
 
   const profile = await Profile.findOneAndUpdate({ userId: req.user.id }, patch, {
     upsert: true,

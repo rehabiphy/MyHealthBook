@@ -81,7 +81,11 @@ export default function MedicineDoseCard({ med, doses, takenToday, busy, onToggl
           {dl != null && (
             <View style={styles.stockPill}>
               <View style={[styles.stockDot, { backgroundColor: low ? refillColor(dl) : C.normal }]} />
-              <Text style={[styles.metaText, low && { color: refillColor(dl), fontFamily: SANS.semibold }]}>{refillLabel(dl)}</Text>
+              <Text style={[styles.metaText, low && { color: refillColor(dl), fontFamily: SANS.semibold }]}>
+                {refillLabel(dl)}
+                {/* the estimated finish date: today + whole days of stock left at the current dose */}
+                {dl > 0 ? ` · until ${new Date(Date.now() + dl * 864e5).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}
+              </Text>
             </View>
           )}
         </View>

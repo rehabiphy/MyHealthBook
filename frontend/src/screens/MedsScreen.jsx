@@ -9,8 +9,7 @@ import { SLOTS, activeMeds, adherence, dayKey, dosesToday, prettyTime, slotOf } 
 import { fmtDay } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import { useAsk } from '../state/AskDialogContext';
-import { useTabBarClearance } from '../navigation/TabBar';
-import Head from '../components/atoms/Head';
+import Screen, { Section } from '../components/layout/Screen';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
@@ -18,14 +17,12 @@ import Seg from '../components/atoms/Seg';
 import Press from '../components/atoms/Press';
 import MedicineDoseCard from '../components/meds/MedicineDoseCard';
 import MedicinePickerSheet from '../components/meds/MedicinePickerSheet';
-import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 
 export default function MedsScreen() {
   const { data, addMedicine, setMedStatus, restockMedicine, toggleDoseTaken, updateMedSettings, deleteMedicine } = useData();
   const ask = useAsk();
-  const bottomPad = useTabBarClearance();
   const insets = useSafeAreaInsets(); // the add-medicine Modal draws edge-to-edge
   const [name, setName] = useState('');
   const [nameInfo, setNameInfo] = useState(''); // composition · maker of the catalog pick, shown under the name
@@ -41,12 +38,17 @@ export default function MedsScreen() {
   const [note, setNote] = useState('');
   const [leadDraft, setLeadDraft] = useState(null); // picked but not saved yet; null = showing the saved one
   const [savingLead, setSavingLead] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const settings = data.medSettings || { times: {}, lead: 10 };
   const savedLead = settings.lead ?? 10;
   const lead = leadDraft ?? savedLead;
   const leadDirty = lead !== savedLead;
-  const times = { ...Object.fromEntries(SLOTS.map(s => [s.key, s.time])), ...(settings.times || {}) };
+  const times = {
+    ...Object.fromEntries(SLOTS.map(s => [s.key, s.time])),
+    ...(settings.times || {}),
+  };
   const doses = dosesToday(data);
   const adh = adherence(data, 7);
   const say = m => {
@@ -92,7 +94,13 @@ export default function MedsScreen() {
     if (!name.trim() || !picked.length || saving) return;
     setSaving(true);
     try {
-      await addMedicine({ name: name.trim(), dose: dose.trim(), slots: picked, perDose: Math.max(1, +perDose || 1), stock: stock === '' ? null : +stock });
+      await addMedicine({
+        name: name.trim(),
+        dose: dose.trim(),
+        slots: picked,
+        perDose: Math.max(1, +perDose || 1),
+        stock: stock === '' ? null : +stock,
+      });
       closeForm();
       say('Medicine added');
     } catch (err) {
@@ -190,74 +198,93 @@ export default function MedsScreen() {
   const takenCount = doses.filter(d => takenToday[d.id]).length;
 
   const timeToDate = t => {
-    const [h, m] = String(t || '00:00').split(':').map(Number);
+    const [h, m] = String(t || '00:00')
+      .split(':')
+      .map(Number);
     const d = new Date();
     d.setHours(h, m, 0, 0);
     return d;
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-      <Head
-        title="Medicines"
-        icon={G.meds(C.mint)}
-        tint={C.mint}
-        caption={data.meds.length ? `${doses.length} doses today` : 'Nothing added yet'}
-        right={
-          adh.pct != null && (
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.adhPct}>{adh.pct}%</Text>
-              <Mono>
-                7-day · {adh.done}/{adh.due}
-              </Mono>
-            </View>
-          )
-        }
-      />
-
+    <Screen
+      title="Medicines"
+      subtitle={data.meds.length ? `${doses.length} dose${doses.length === 1 ? '' : 's'} today` : 'Reminders for every dose'}
+      right={
+        adh.pct != null ? (
+          <View style={styles.adhBox}>
+            <Text style={styles.adhPct}>{adh.pct}%</Text>
+            <Text style={styles.adhLabel}>taken, 7 days</Text>
+          </View>
+        ) : null
+      }
+    >
       {note && !adding ? (
         <View style={styles.noteBanner}>
           <Text style={styles.noteText}>{note}</Text>
         </View>
       ) : null}
 
-      <Btn style={{ marginTop: 18 }} onClick={() => setAdding(true)}>
+      {medCards.length > 0 ? (
+        <Card style={styles.todayCard}>
+          <View style={styles.todayRow}>
+            <Text style={styles.todayTitle}>Today</Text>
+            <Text style={[styles.todayCount, takenCount === doses.length && { color: C.normal }]}>{takenCount === doses.length ? '✓ All doses taken' : `${takenCount} of ${doses.length} taken`}</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${doses.length ? Math.round((takenCount / doses.length) * 100) : 0}%`,
+                },
+              ]}
+            />
+          </View>
+        </Card>
+      ) : (
+        <Card style={styles.todayCard}>
+          <Text style={styles.todayTitle}>{data.meds.length ? 'Nothing scheduled right now' : 'No medicines yet'}</Text>
+          <Text style={styles.hintText}>
+            {data.meds.length ? 'Paused and stopped medicines are listed below.' : "Add what you take and when — you'll get a reminder for each dose, even when the app is closed."}
+          </Text>
+        </Card>
+      )}
+
+      <Btn style={{ marginTop: 12 }} onClick={() => setAdding(true)}>
         + Add medicine
       </Btn>
 
       {medCards.length > 0 && (
-        <>
-          <View style={styles.todayRow}>
-            <Text style={styles.todayTitle}>Today</Text>
-            <Text style={[styles.todayCount, takenCount === doses.length && { color: C.normal }]}>
-              {takenCount === doses.length ? '✓ All doses taken' : `${takenCount} of ${doses.length} doses taken`}
-            </Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${doses.length ? Math.round((takenCount / doses.length) * 100) : 0}%` }]} />
-          </View>
-
-          <View style={{ marginTop: 14 }}>
-            {medCards.map(({ med, doses: medDoses }) => (
-              <MedicineDoseCard
-                key={med.id}
-                med={med}
-                doses={medDoses}
-                takenToday={takenToday}
-                busy={busy}
-                onToggle={toggleTaken}
-                onPause={() => setStatus(med.id, 'paused')}
-                onStop={() => setStatus(med.id, 'discontinued')}
-                onRestock={qty => saveRestock(med.id, qty)}
-              />
-            ))}
-          </View>
-        </>
+        <View style={{ marginTop: 14 }}>
+          {medCards.map(({ med, doses: medDoses }) => (
+            <MedicineDoseCard
+              key={med.id}
+              med={med}
+              doses={medDoses}
+              takenToday={takenToday}
+              busy={busy}
+              onToggle={toggleTaken}
+              onPause={() => setStatus(med.id, 'paused')}
+              onStop={() => setStatus(med.id, 'discontinued')}
+              onRestock={qty => saveRestock(med.id, qty)}
+            />
+          ))}
+        </View>
       )}
 
       <Modal visible={adding} animationType="slide" onRequestClose={closeForm}>
         <LinearGradient colors={GRAD_SHEET.colors} locations={GRAD_SHEET.locations} start={GRAD_SHEET.start} end={GRAD_SHEET.end} style={{ flex: 1 }}>
-          <View style={[styles.sheetHeader, { paddingTop: insets.top + 16, paddingLeft: insets.left + 18, paddingRight: insets.right + 18 }]}>
+          <View
+            style={[
+              styles.sheetHeader,
+              {
+                paddingTop: insets.top + 16,
+                paddingLeft: insets.left + 18,
+                paddingRight: insets.right + 18,
+              },
+            ]}
+          >
             <View>
               <Text style={styles.sheetTitle}>Add a medicine</Text>
               <Mono style={{ marginTop: 3 }}>Name, dose and when you take it</Mono>
@@ -340,7 +367,19 @@ export default function MedsScreen() {
                             <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.slotOpt}>
                               <Text style={[styles.slotOptLabel, { color: '#FFFFFF' }]}>
                                 {s.label}
-                                {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.7 }}> · {s.sub}</Text> : ''}
+                                {s.sub ? (
+                                  <Text
+                                    style={{
+                                      fontFamily: SANS.regular,
+                                      opacity: 0.7,
+                                    }}
+                                  >
+                                    {' '}
+                                    · {s.sub}
+                                  </Text>
+                                ) : (
+                                  ''
+                                )}
                               </Text>
                               <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
                                 <Text style={styles.slotOptTime}>{prettyTime(times[s.key])}</Text>
@@ -350,7 +389,19 @@ export default function MedsScreen() {
                             <View style={[styles.slotOpt, styles.slotOptOff]}>
                               <Text style={[styles.slotOptLabel, { color: C.ink }]}>
                                 {s.label}
-                                {s.sub ? <Text style={{ fontFamily: SANS.regular, opacity: 0.6 }}> · {s.sub}</Text> : ''}
+                                {s.sub ? (
+                                  <Text
+                                    style={{
+                                      fontFamily: SANS.regular,
+                                      opacity: 0.6,
+                                    }}
+                                  >
+                                    {' '}
+                                    · {s.sub}
+                                  </Text>
+                                ) : (
+                                  ''
+                                )}
                               </Text>
                               <Press onPress={() => setTimePickerFor(s.key)} style={styles.slotTimeBtn}>
                                 <Text style={[styles.slotOptTime, { color: C.ink2 }]}>{prettyTime(times[s.key])}</Text>
@@ -373,7 +424,9 @@ export default function MedsScreen() {
                         if (event.type === 'dismissed' || !selected) return;
                         const hh = String(selected.getHours()).padStart(2, '0');
                         const mm = String(selected.getMinutes()).padStart(2, '0');
-                        setSettings({ times: { ...times, [key]: `${hh}:${mm}` } });
+                        setSettings({
+                          times: { ...times, [key]: `${hh}:${mm}` },
+                        });
                       }}
                     />
                   )}
@@ -394,102 +447,255 @@ export default function MedsScreen() {
       </Modal>
 
       {data.meds.some(m => (m.status || 'active') !== 'active') && (
-        <Card style={{ marginTop: 10 }}>
-          <Mono>Not taking now</Mono>
-          <Text style={styles.hintText}>Kept in your record. These never appear in today's doses or your health summary.</Text>
-          {data.meds
-            .filter(m => (m.status || 'active') !== 'active')
-            .map(m => (
-              <View key={m.id} style={styles.inactiveRow}>
-                <View style={{ minWidth: 0, flex: 1 }}>
-                  <Text style={styles.inactiveName}>{m.name}</Text>
-                  <Mono style={{ marginTop: 3 }}>
-                    {m.status}
-                    {m.stoppedAt ? ` · ${fmtDay(m.stoppedAt).toLowerCase()}` : ''}
-                    {m.stopReason ? ` · ${m.stopReason}` : ''}
-                  </Mono>
-                </View>
-                <View style={styles.inactiveActions}>
-                  <Press onPress={() => setStatus(m.id, 'active')} style={styles.restartBtn}>
-                    <Text style={styles.restartLabel}>Start again</Text>
-                  </Press>
-                  <Press onPress={() => removeMed(m)} style={styles.deleteBtn} accessibilityLabel={`Delete ${m.name}`}>
-                    <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
-                    </Svg>
-                  </Press>
-                </View>
-              </View>
-            ))}
-        </Card>
+        <Section title="Not taking now" action={showInactive ? 'Hide' : `Show (${data.meds.filter(m => (m.status || 'active') !== 'active').length})`} onAction={() => setShowInactive(v => !v)}>
+          {showInactive && (
+            <Card>
+              <Text style={styles.hintText}>Kept in your record. These never appear in today's doses or your health summary.</Text>
+              {data.meds
+                .filter(m => (m.status || 'active') !== 'active')
+                .map(m => (
+                  <View key={m.id} style={styles.inactiveRow}>
+                    <View style={{ minWidth: 0, flex: 1 }}>
+                      <Text style={styles.inactiveName}>{m.name}</Text>
+                      <Mono style={{ marginTop: 3 }}>
+                        {m.status}
+                        {m.stoppedAt ? ` · ${fmtDay(m.stoppedAt).toLowerCase()}` : ''}
+                        {m.stopReason ? ` · ${m.stopReason}` : ''}
+                      </Mono>
+                    </View>
+                    <View style={styles.inactiveActions}>
+                      <Press onPress={() => setStatus(m.id, 'active')} style={styles.restartBtn}>
+                        <Text style={styles.restartLabel}>Start again</Text>
+                      </Press>
+                      <Press onPress={() => removeMed(m)} style={styles.deleteBtn} accessibilityLabel={`Delete ${m.name}`}>
+                        <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <Path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+                        </Svg>
+                      </Press>
+                    </View>
+                  </View>
+                ))}
+            </Card>
+          )}
+        </Section>
       )}
 
-      <Card style={{ marginTop: 10 }}>
-        <Mono>Reminders</Mono>
-        <View style={{ marginTop: 14 }}>
-          <Mono>Remind me before the dose</Mono>
-          <View style={{ marginTop: 10 }}>
-            <Seg
-              value={String(lead)}
-              onChange={v => setLeadDraft(+v)}
-              options={[
-                { value: '0', label: 'On time' },
-                { value: '5', label: '5 min' },
-                { value: '10', label: '10 min' },
-                { value: '30', label: '30 min' },
-              ]}
-            />
-          </View>
-        </View>
-        <Text style={styles.hintText}>
-          Choose when you’d like to be reminded about your medicine dose. Notifications will alert you at your selected time, even when the app is closed.
-        </Text>
-        <Btn style={styles.saveBtn} disabled={!leadDirty || savingLead} onClick={saveLead}>
-          {savingLead ? 'Saving…' : leadDirty ? 'Save reminder' : 'Saved'}
-        </Btn>
-      </Card>
+      <Section title="Reminder settings" action={showSettings ? 'Hide' : 'Show'} onAction={() => setShowSettings(v => !v)}>
+        {showSettings && (
+          <Card>
+            <View>
+              <Text style={styles.settingLabel}>Remind me before each dose</Text>
+              <View style={{ marginTop: 10 }}>
+                <Seg
+                  value={String(lead)}
+                  onChange={v => setLeadDraft(+v)}
+                  options={[
+                    { value: '0', label: 'On time' },
+                    { value: '5', label: '5 min' },
+                    { value: '10', label: '10 min' },
+                    { value: '30', label: '30 min' },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.hintText}>Choose when you’d like to be reminded about your medicine dose. Notifications will alert you at your selected time, even when the app is closed.</Text>
+            <Btn style={styles.saveBtn} disabled={!leadDirty || savingLead} onClick={saveLead}>
+              {savingLead ? 'Saving…' : leadDirty ? 'Save reminder' : 'Saved'}
+            </Btn>
+            <Text style={styles.hintText}>Dose times are set per time of day when you add a medicine — tap a time there to change it.</Text>
+          </Card>
+        )}
+      </Section>
 
-      <Card style={{ marginTop: 10 }}>
-        <Mono>Important</Mono>
-        <Text style={styles.importantText}>
-          This is a reminder list you control. It does not check doses, interactions or timing — only your doctor or pharmacist can do that. Never start, stop or change a medicine because of anything in this app.
-        </Text>
-      </Card>
-    </ScrollView>
+      <Text style={styles.importantText}>
+        This is a reminder list you control. It does not check doses, interactions or timing — only your doctor or pharmacist can do that. Never start, stop or change a medicine because of anything in
+        this app.
+      </Text>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
-  adhPct: { fontFamily: SANS.bold, fontSize: 26, letterSpacing: -1, color: C.ink },
-  noteBanner: { marginTop: 14, backgroundColor: C.panelSoft, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16 },
+  adhBox: { alignItems: 'flex-end' },
+  adhPct: {
+    fontFamily: SANS.bold,
+    fontSize: 24,
+    letterSpacing: -0.8,
+    color: C.brand2,
+  },
+  adhLabel: { fontFamily: SANS.regular, fontSize: 13, color: C.ink3 },
+  todayCard: { paddingVertical: 16 },
+  settingLabel: {
+    fontFamily: SANS.semibold,
+    fontSize: 16,
+    color: C.ink,
+    marginBottom: 10,
+  },
+  noteBanner: {
+    marginBottom: 12,
+    backgroundColor: C.panelSoft,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
   noteText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.onPanel2 },
-  todayRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 20, paddingHorizontal: 4 },
-  todayTitle: { fontFamily: SANS.bold, fontSize: 20, letterSpacing: -0.5, color: C.ink },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  todayTitle: {
+    fontFamily: SANS.bold,
+    fontSize: 20,
+    letterSpacing: -0.5,
+    color: C.ink,
+  },
   todayCount: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2 },
-  progressTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(22,36,28,0.08)', marginTop: 10, marginHorizontal: 4, overflow: 'hidden' },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(22,36,28,0.08)',
+    marginTop: 10,
+    overflow: 'hidden',
+  },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: C.brand },
-  namePicker: { flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8 },
-  namePickerText: { flex: 1, fontFamily: SANS.semibold, fontSize: 20, color: C.ink },
-  doseInput: { width: '100%', borderBottomWidth: 2, borderBottomColor: C.hair, marginTop: 8, paddingBottom: 8, fontFamily: SANS.medium, fontSize: 16, color: C.ink },
+  namePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: C.hair,
+    marginTop: 8,
+    paddingBottom: 8,
+  },
+  namePickerText: {
+    flex: 1,
+    fontFamily: SANS.semibold,
+    fontSize: 20,
+    color: C.ink,
+  },
+  doseInput: {
+    width: '100%',
+    borderBottomWidth: 2,
+    borderBottomColor: C.hair,
+    marginTop: 8,
+    paddingBottom: 8,
+    fontFamily: SANS.medium,
+    fontSize: 16,
+    color: C.ink,
+  },
   stockRow: { flexDirection: 'row', gap: 14, marginTop: 18 },
-  hintText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, lineHeight: 21, marginTop: 8 },
+  hintText: {
+    fontFamily: SANS.regular,
+    fontSize: 14.5,
+    color: C.ink2,
+    lineHeight: 21,
+    marginTop: 8,
+  },
   slotOptWrap: { marginBottom: 6 },
-  slotOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15 },
-  slotOptOff: { backgroundColor: 'rgba(22,36,28,0.05)', borderWidth: 1, borderColor: C.hair },
+  slotOpt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+  },
+  slotOptOff: {
+    backgroundColor: 'rgba(22,36,28,0.05)',
+    borderWidth: 1,
+    borderColor: C.hair,
+  },
   slotOptLabel: { fontFamily: SANS.semibold, fontSize: 14.5 },
-  slotTimeBtn: { paddingVertical: 6, paddingHorizontal: 10, marginVertical: -6, marginHorizontal: -10, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.14)' },
-  slotOptTime: { fontFamily: MONO.medium, fontSize: 13, letterSpacing: 0.6, opacity: 0.9, color: '#FFFFFF' },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
-  sheetTitle: { fontFamily: SANS.bold, fontSize: 19, letterSpacing: -0.6, color: C.ink },
-  closeBtn: { width: 36, height: 36, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  sheetFooter: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.hair },
-  inactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.hair },
-  inactiveName: { fontFamily: SANS.semibold, fontSize: 15.5, color: C.ink2, letterSpacing: -0.3 },
-  restartBtn: { borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
+  slotTimeBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginVertical: -6,
+    marginHorizontal: -10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  slotOptTime: {
+    fontFamily: MONO.medium,
+    fontSize: 13,
+    letterSpacing: 0.6,
+    opacity: 0.9,
+    color: '#FFFFFF',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: C.hair,
+  },
+  sheetTitle: {
+    fontFamily: SANS.bold,
+    fontSize: 19,
+    letterSpacing: -0.6,
+    color: C.ink,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.hair,
+    backgroundColor: C.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.hair,
+  },
+  inactiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.hair,
+  },
+  inactiveName: {
+    fontFamily: SANS.semibold,
+    fontSize: 15.5,
+    color: C.ink2,
+    letterSpacing: -0.3,
+  },
+  restartBtn: {
+    borderWidth: 1,
+    borderColor: C.hair,
+    backgroundColor: C.card,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 15,
+  },
   restartLabel: { fontFamily: SANS.semibold, fontSize: 14.5, color: C.ink },
   inactiveActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deleteBtn: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.hair,
+    backgroundColor: C.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   saveBtn: { marginTop: 16 },
-  importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
+  importantText: {
+    fontFamily: SANS.regular,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: C.ink3,
+    marginTop: 22,
+    paddingHorizontal: 4,
+  },
 });

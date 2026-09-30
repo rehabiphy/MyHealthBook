@@ -38,14 +38,14 @@ function put(url, headers, blob, onProgress) {
 }
 
 /** file: a document-picker result ({ uri, name, type, size }). Resolves { key, name, type, size }. */
-export async function uploadAttachment(file, token, onProgress) {
+export async function uploadAttachment(file, token, onProgress, { replacing = false } = {}) {
   const type = attachmentType(file);
   if (!type) throw new Error('Please choose a PDF or a photo (JPG, PNG, WEBP or HEIC).');
   if (file.size && file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
     throw new Error(`This file is ${sizeLabel(file.size)}. Reports can be up to ${MAX_ATTACHMENT_MB} MB.`);
   }
 
-  const { upload } = await recordsApi.getUploadUrl({ type, size: file.size || undefined }, token);
+  const { upload } = await recordsApi.getUploadUrl({ type, size: file.size || undefined, replacing }, token);
   // React Native's fetch reads the picker's content:// uri straight into a blob
   const blob = await (await fetch(file.uri)).blob();
   onProgress?.(0);

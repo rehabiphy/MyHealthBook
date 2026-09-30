@@ -55,6 +55,19 @@ export async function shareReportPdf(html, fileName = 'vitals-report') {
   }
 }
 
+/* A CSV of readings (see lib/trends.js toCsv) handed to the share sheet
+   — opens in Excel / Sheets or goes straight to the doctor. */
+export async function exportCsv(csv, fileName) {
+  try {
+    const path = `${RNFS.CachesDirectoryPath}/${fileName}.csv`;
+    await RNFS.writeFile(path, csv, 'utf8');
+    await RNShare.open({ url: `file://${path}`, type: 'text/csv', failOnCancel: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* Writes the raw JSON backup to a cache file and hands it to the share
    sheet, so the user can save it into Files / Drive / send it on. */
 export async function exportJson(data, fileName) {

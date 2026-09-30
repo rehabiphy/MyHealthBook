@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
-import { PLANS, isPremium } from '../utils/subscription.js';
+import { PLANS, PAID_PLANS } from '../utils/subscription.js';
 import { buildPayuConfig, buildRequestHash, buildReverseHash } from '../utils/payu.js';
+import { settleTransaction, logEvent } from '../utils/purchases.js';
 import { isOneOf } from '../utils/validators.js';
 
 function resultHtml(outcome) {
@@ -23,7 +24,7 @@ function resultHtml(outcome) {
 export async function initiateCheckout(req, res) {
   const { plan } = req.body || {};
 
-  if (!isOneOf(plan, Object.keys(PLANS))) {
+  if (!isOneOf(plan, PAID_PLANS)) {
     return res.status(400).json({ success: false, message: 'Invalid plan' });
   }
 
@@ -31,7 +32,7 @@ export async function initiateCheckout(req, res) {
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
   if (!user.phone) {
-    return res.status(400).json({ success: false, message: 'Please add your phone number in your profile before subscribing to Premium.' });
+    return res.status(400).json({ success: false, message: 'Please add your phone number in your profile before subscribing.' });
   }
 
   let payuConfig;
@@ -55,6 +56,10 @@ export async function initiateCheckout(req, res) {
   const udf5 = '';
 
   const hash = buildRequestHash({ key: payuConfig.key, txnid, amount, productinfo, firstname, email, udf1, udf2, udf3, udf4, udf5, salt: payuConfig.salt });
+
+  // what this payment is for is fixed here — the callback settles this record, it never creates one
+  await Transaction.create({ userId: user._id, txnid, plan, amount: planInfo.amount, status: 'pending' });
+  logEvent(user._id, 'checkout_started', { plan });
 
   const base = process.env.WEB_BASE_URL || 'https://myhealthbook.rehabiphy.com';
   const surl = `${base}/api/payments/payu-success`;
@@ -96,7 +101,7 @@ export async function handlePayuCallback(req, res) {
     return res.status(500).type('html').send(resultHtml('FAILURE'));
   }
 
-  const { status, txnid, amount, productinfo, firstname, email, udf1, udf2, udf3, udf4, udf5, hash: receivedHash } = req.body || {};
+  const { status, txnid, amount, productinfo, firstname, email, udf1, udf2, udf3, udf4, udf5, mihpayid, hash: receivedHash } = req.body || {};
 
   if (!txnid || !status || !receivedHash) {
     return res.status(400).type('html').send(resultHtml('FAILURE'));
@@ -109,38 +114,14 @@ export async function handlePayuCallback(req, res) {
     return res.status(400).type('html').send(resultHtml('FAILURE'));
   }
 
-  if (status !== 'success') {
-    return res.type('html').send(resultHtml('FAILURE'));
-  }
-
-  const existing = await Transaction.findOne({ txnid });
-  if (existing) {
-    // Replayed success POST — already processed, no-op so premium isn't re-granted/extended twice.
-    return res.type('html').send(resultHtml('SUCCESS'));
-  }
-
-  const plan = udf2;
-  const planInfo = PLANS[plan];
-  const user = planInfo ? await User.findById(udf3) : null;
-  if (!user) {
+  // the pending record from checkout must be this user's, for this plan — udf values alone aren't trusted
+  const txn = await Transaction.findOne({ txnid }, 'userId plan').lean();
+  if (!txn || txn.userId.toString() !== udf3 || txn.plan !== udf2) {
+    console.error('PayU callback for an unknown or mismatched transaction', { txnid });
     return res.status(400).type('html').send(resultHtml('FAILURE'));
   }
 
-  try {
-    await Transaction.create({ userId: user._id, txnid, plan, amount: Number(amount), status: 'success' });
-  } catch (err) {
-    if (err.code === 11000) {
-      // Lost a race to a concurrent replay of the same txnid — already recorded.
-      return res.type('html').send(resultHtml('SUCCESS'));
-    }
-    throw err;
-  }
-
-  const now = Date.now();
-  const activeBase = isPremium(user) ? new Date(user.premiumExpiry).getTime() : now;
-  user.subscription = 'premium';
-  user.premiumExpiry = new Date(activeBase + planInfo.days * 24 * 60 * 60 * 1000);
-  await user.save();
-
-  return res.type('html').send(resultHtml('SUCCESS'));
+  // replays are no-ops inside settleTransaction, so this never extends a plan twice
+  const settled = await settleTransaction(txnid, { success: status === 'success', amount, mihpayid });
+  return res.type('html').send(resultHtml(settled === 'success' ? 'SUCCESS' : 'FAILURE'));
 }

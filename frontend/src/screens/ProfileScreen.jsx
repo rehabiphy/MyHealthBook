@@ -1,296 +1,160 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { C } from '../theme/colors';
+import Svg, { Path } from 'react-native-svg';
+import { C, GLASS } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
 import { kg1 } from '../lib/calc';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { useAsk } from '../state/AskDialogContext';
-import { useTabBarClearance } from '../navigation/TabBar';
-import Head from '../components/atoms/Head';
-import Card from '../components/atoms/Card';
-import Mono from '../components/atoms/Mono';
-import Btn from '../components/atoms/Btn';
-import Seg from '../components/atoms/Seg';
-import { G } from '../components/icons/ScreenGlyphs';
-import ReportSheet from '../components/dialogs/ReportSheet';
-import SafetyCard from '../components/sos/SafetyCard';
-import NotificationsCard from '../components/NotificationsCard';
+import { useSubscription } from '../state/SubscriptionContext';
 import { useGo } from '../navigation/useGo';
+import Screen, { Section } from '../components/layout/Screen';
+import { ListGroup, ListRow } from '../components/layout/ListRow';
+import Press from '../components/atoms/Press';
+import { G } from '../components/icons/ScreenGlyphs';
 
-const SEXES = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-];
+const SEX = { male: 'Male', female: 'Female', other: 'Other' };
 
-function Row({ label, children }) {
-  return (
-    <View style={styles.row}>
-      <Mono>{label}</Mono>
-      {children}
-    </View>
+const icon = d => c =>
+  (
+    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <Path d={d} />
+    </Svg>
   );
-}
+const I = {
+  people: icon('M9 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3.5 19c1-2.6 3-4 5.5-4s4.5 1.4 5.5 4M16.5 12a2.2 2.2 0 1 0 0-4.4M16 14.2c2 .2 3.5 1.5 4.3 3.4'),
+  bell: icon('M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9zM13.7 19.5a2 2 0 0 1-3.4 0'),
+  shield: icon('M12 3.5l7 3v5c0 4.3-3 7.7-7 9-4-1.3-7-4.7-7-9v-5z M9 12l2 2 4-4'),
+  file: icon('M6 3.8h8.2L18.5 8v12.2H6zM14 3.8V8h4.4M9 13h6M9 16.5h4'),
+  logout: icon('M14 4.5h4.5v15H14M10 8l-4 4 4 4M6 12h9'),
+};
 
+/* Profile is a menu, not a form: who you are at the top, then one row
+   per thing you might come here to do, each opening its own page. */
 export default function ProfileScreen() {
-  const { data, saveProfile, deleteAllReadings } = useData();
+  const { data } = useData();
   const { user, signOut } = useAuth();
+  const { subscription, tier, source } = useSubscription();
   const ask = useAsk();
   const go = useGo();
-  const bottomPad = useTabBarClearance();
-  const [report, setReport] = useState(false);
-  const [draft, setDraft] = useState(data.profile);
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const saved = useRef(data.profile);
-
-  useEffect(() => {
-    if (JSON.stringify(saved.current) !== JSON.stringify(data.profile)) {
-      saved.current = data.profile;
-      setDraft(data.profile);
-    }
-  }, [data.profile]);
-
-  const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const dirty = JSON.stringify(draft) !== JSON.stringify(data.profile);
-  const save = async () => {
-    setSaving(true);
-    try {
-      saved.current = draft;
-      await saveProfile(draft);
-      setNote('Profile saved');
-      setTimeout(() => setNote(''), 1800);
-    } catch (err) {
-      setNote(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const p = data.profile;
   const h = data.health || { conditions: [], allergies: '', bloodGroup: '' };
   const w = data.body[0];
-  const hist = data.history || [];
-  const initials = (p.name || '').trim().split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase();
+  const name = p.name || user?.name || '';
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .map(x => x[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const facts = [p.age && `${p.age} years`, SEX[p.sex], p.heightCm && `${p.heightCm} cm`, w && `${kg1(w.weightKg)} kg`].filter(Boolean).join(' · ');
+
+  const planLabel = tier === 'free' ? 'Free' : source === 'family' ? 'Plus (via Family)' : subscription.label;
+  const planNote =
+    subscription.status === 'CANCELLED'
+      ? 'Cancelled — active until its end date'
+      : subscription.status === 'GRACE_PERIOD'
+      ? 'Ended — renew to keep its features'
+      : tier === 'free'
+      ? 'See what Plus and Family add'
+      : 'Manage your plan';
+
+  const logOut = async () => {
+    const ok = await ask({ title: 'Log out?', body: 'You can log back in anytime with your email and password.', confirmLabel: 'Log out', cancelLabel: 'Cancel', danger: true });
+    if (ok) signOut();
+  };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-      <Head title="Profile" caption="who you are, and where you stand" icon={G.me(C.brand)} tint={C.brand} />
-
-      <Card style={{ padding: 20 }}>
-        <View style={styles.identityRow}>
-          <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.avatar}>
-            <Text style={styles.avatarLabel}>{initials || '—'}</Text>
-          </LinearGradient>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.name}>{p.name || 'Add your name'}</Text>
-            {user?.username ? <Mono style={{ marginTop: 3, color: C.brand2 }}>@{user.username}</Mono> : null}
-            <Text style={styles.subline}>{[p.age && `${p.age} years`, p.sex && SEXES.find(x => x.value === p.sex)?.label, p.heightCm && `${p.heightCm} cm`, w && `${kg1(w.weightKg)} kg`].filter(Boolean).join(' · ') || 'Details below'}</Text>
-          </View>
+    <Screen title="Profile">
+      <Press onPress={() => go('profileDetails')} style={styles.identity} accessibilityLabel="Edit personal details">
+        <LinearGradient colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={styles.avatar}>
+          <Text style={styles.avatarLabel}>{initials || '—'}</Text>
+        </LinearGradient>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.name} numberOfLines={1}>
+            {name || 'Add your name'}
+          </Text>
+          {user?.username ? <Text style={styles.handle}>@{user.username}</Text> : null}
+          <Text style={styles.facts}>{facts || 'Add your age, height and more'}</Text>
         </View>
-        {(h.bloodGroup || h.allergies || h.conditions.length > 0) && (
-          <View style={styles.tagsRow}>
-            {h.bloodGroup && (
-              <View style={[styles.tag, { backgroundColor: C.stage2 }]}>
-                <Text style={styles.tagLabelWhite}>Blood {h.bloodGroup}</Text>
-              </View>
-            )}
-            {h.allergies && (
-              <View style={[styles.tag, { backgroundColor: C.elevated }]}>
-                <Text style={styles.tagLabelWhite}>Allergy · {h.allergies}</Text>
-              </View>
-            )}
-            {h.conditions.map(c => (
-              <View key={c} style={[styles.tag, styles.tagOutline]}>
-                <Text style={styles.tagLabelOutline}>{c}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </Card>
-
-      <View style={styles.sectionPad}>
-        <Mono>Your details</Mono>
-      </View>
-      <Card style={{ paddingTop: 4, paddingBottom: 18 }}>
-        <Row label="Name">
-          <TextInput value={draft.name || ''} onChangeText={t => set('name', t)} placeholder="Add name" placeholderTextColor={C.ink3} style={styles.fieldInput} />
-        </Row>
-        <Row label="Age">
-          <TextInput
-            value={draft.age ? String(draft.age) : ''}
-            onChangeText={t => set('age', t.replace(/\D/g, '').slice(0, 3))}
-            keyboardType="number-pad"
-            placeholder="––"
-            placeholderTextColor={C.ink3}
-            style={[styles.fieldInput, { width: 70 }]}
-          />
-        </Row>
-        <View style={styles.sexBlock}>
-          <Mono>Sex</Mono>
-          <View style={{ marginTop: 10 }}>
-            <Seg value={draft.sex || ''} onChange={v => set('sex', v)} options={SEXES} />
-          </View>
+        <View style={[styles.planPill, tier !== 'free' && styles.planPillPaid]}>
+          <Text style={[styles.planPillText, tier !== 'free' && styles.planPillTextPaid]}>{tier === 'free' ? 'Free' : tier === 'family' ? 'Family' : 'Plus'}</Text>
         </View>
-        <Row label="Height · cm">
-          <TextInput
-            value={draft.heightCm ? String(draft.heightCm) : ''}
-            onChangeText={t => set('heightCm', t.replace(/\D/g, '').slice(0, 3))}
-            keyboardType="number-pad"
-            placeholder="––"
-            placeholderTextColor={C.ink3}
-            style={[styles.fieldInput, { width: 70 }]}
-          />
-        </Row>
-        <Row label="Weight · kg">
-          <Text style={[styles.readonlyValue, { color: w ? C.ink : C.ink3 }]}>{w ? kg1(w.weightKg) : 'record it'}</Text>
-        </Row>
-        <Row label="Blood group">
-          <Text style={[styles.readonlyValue, { color: h.bloodGroup ? C.ink : C.ink3 }]}>{h.bloodGroup || 'set in Health'}</Text>
-        </Row>
-        <View style={styles.dietBlock}>
-          <Mono>Diet</Mono>
-          <View style={{ marginTop: 10 }}>
-            <Seg
-              value={draft.diet || 'veg'}
-              onChange={v => set('diet', v)}
-              options={[
-                { value: 'veg', label: 'Veg' },
-                { value: 'egg', label: 'Egg' },
-                { value: 'nonveg', label: 'Non-veg' },
-              ]}
-            />
-          </View>
+      </Press>
+
+      {(h.bloodGroup || h.allergies || h.conditions.length > 0) && (
+        <View style={styles.tags}>
+          {h.bloodGroup ? (
+            <View style={[styles.tag, { backgroundColor: C.stage2 }]}>
+              <Text style={styles.tagWhite}>Blood {h.bloodGroup}</Text>
+            </View>
+          ) : null}
+          {h.allergies ? (
+            <View style={[styles.tag, { backgroundColor: C.elevated }]}>
+              <Text style={styles.tagWhite}>Allergy: {h.allergies}</Text>
+            </View>
+          ) : null}
+          {h.conditions.map(c => (
+            <View key={c} style={[styles.tag, styles.tagOutline]}>
+              <Text style={styles.tagOutlineText}>{c}</Text>
+            </View>
+          ))}
         </View>
-        <Btn onClick={save} disabled={!dirty || saving} style={{ paddingVertical: 17 }}>
-          {saving ? 'Saving…' : dirty ? 'Save profile' : note || 'Saved'}
-        </Btn>
-        <Text style={styles.hintText}>Weight comes from your latest reading. Blood group and conditions live in Health Summary.</Text>
-      </Card>
+      )}
 
-      <View style={styles.sectionPad}>
-        <Mono>Doctor</Mono>
-      </View>
-      <Card style={{ paddingTop: 4, paddingBottom: 18 }}>
-        <Row label="Doctor · WhatsApp">
-          <TextInput
-            value={draft.docPhone || ''}
-            onChangeText={t => set('docPhone', t.replace(/[^\d+]/g, '').slice(0, 15))}
-            keyboardType="phone-pad"
-            placeholder="+91…"
-            placeholderTextColor={C.ink3}
-            style={[styles.fieldInput, { width: 130 }]}
-          />
-        </Row>
-        <Row label="Doctor · email">
-          <TextInput
-            value={draft.docEmail || ''}
-            onChangeText={t => set('docEmail', t.trim())}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder="optional"
-            placeholderTextColor={C.ink3}
-            style={styles.fieldInput}
-          />
-        </Row>
-        <Text style={[styles.hintText, { paddingTop: 14 }]}>Fill these in and the report goes straight to your doctor. Include the country code.</Text>
-      </Card>
+      <Section title="Your health book">
+        <ListGroup>
+          <ListRow icon={G.me(C.brand2)} tint={C.brand2} title="Personal details" subtitle="Name, age, height, diet, your doctor" onPress={() => go('profileDetails')} />
+          <ListRow icon={G.health(C.stage2)} tint={C.stage2} title="Health summary" subtitle="Conditions, allergies, blood group, follow-ups" onPress={() => go('health')} />
+          <ListRow icon={I.file(C.low)} tint={C.low} title="Reports & your data" subtitle="Share a report with your doctor, export" onPress={() => go('dataReports')} />
+        </ListGroup>
+      </Section>
 
-      <View style={styles.sectionPad}>
-        <Mono>Family</Mono>
-      </View>
-      <Card>
-        <Text style={styles.hintText}>Invite family by username and choose which parts of your record they can see and edit. Records shared with you, and invitations waiting for you, are here too.</Text>
-        <Btn style={{ marginTop: 14 }} onClick={() => go('family')}>
-          Open Family
-        </Btn>
-      </Card>
+      <Section title="Plan & family">
+        <ListGroup>
+          <ListRow icon={G.premium(C.brand2)} tint={C.brand2} title="Subscription" subtitle={planNote} value={planLabel} onPress={() => go('subscription')} />
+          <ListRow icon={I.people(C.normal)} tint={C.normal} title="Family" subtitle="Share your record, see family members'" onPress={() => go('family')} />
+        </ListGroup>
+      </Section>
 
-      <NotificationsCard />
+      <Section title="Settings">
+        <ListGroup>
+          <ListRow icon={I.bell(C.elevated)} tint={C.elevated} title="Notifications" subtitle="Medicine reminders, daily health tip" onPress={() => go('notificationSettings')} />
+          <ListRow icon={I.shield(C.stage1)} tint={C.stage1} title="Safety" subtitle="Fall detection and SOS to family" onPress={() => go('safety')} />
+        </ListGroup>
+      </Section>
 
-      <SafetyCard />
+      <ListGroup style={{ marginTop: 26 }}>
+        <ListRow icon={I.logout(C.stage2)} tint={C.stage2} title="Log out" danger chevron={false} onPress={logOut} />
+      </ListGroup>
 
-      <Card style={{ marginTop: 10 }}>
-        <Mono>Your data</Mono>
-        <Text style={styles.dataText}>
-          {data.bp.length} pressure · {data.body.length} weight · {data.sugar.length} sugar · {data.meds.length} medicine{data.meds.length === 1 ? '' : 's'} · {hist.length} history record{hist.length === 1 ? '' : 's'}, saved securely to your account.
-        </Text>
-        <Btn onClick={() => setReport(true)} style={{ paddingVertical: 17 }}>
-          Open report
-        </Btn>
-        <Btn
-          kind="quiet"
-          style={{ marginTop: 8 }}
-          textStyle={{ color: C.stage2 }}
-          onClick={async () => {
-            const ok = await ask({
-              title: 'Delete every reading?',
-              body: 'All pressure, weight and sugar readings will be removed. Your medicines and medical history stay.',
-              confirmLabel: 'Delete readings',
-              cancelLabel: 'Cancel',
-              danger: true,
-            });
-            if (ok) {
-              try {
-                await deleteAllReadings();
-              } catch (err) {
-                setNote(err.message);
-              }
-            }
-          }}>
-          Delete all readings
-        </Btn>
-      </Card>
-
-      <Card style={{ marginTop: 10 }}>
-        <Mono>Important</Mono>
-        <Text style={styles.importantText}>This app records what you measure and explains the standard reference ranges. It does not diagnose, prescribe, or change medicines. Take your readings to your doctor — that is what they are for.</Text>
-      </Card>
-
-      <Btn
-        kind="quiet"
-        style={{ marginTop: 10, paddingVertical: 17 }}
-        textStyle={{ color: C.stage2 }}
-        onClick={async () => {
-          const ok = await ask({
-            title: 'Log out?',
-            body: 'You can log back in anytime with your email and password.',
-            confirmLabel: 'Log out',
-            cancelLabel: 'Cancel',
-            danger: true,
-          });
-          if (ok) signOut();
-        }}>
-        Log out
-      </Btn>
-
-      {report && <ReportSheet data={data} onClose={() => setReport(false)} />}
-    </ScrollView>
+      <Text style={styles.disclaimer}>
+        MyHealthBook records what you measure and explains standard reference ranges. It does not diagnose, prescribe or change medicines — take your readings to your doctor.
+      </Text>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
-  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  avatar: { width: 62, height: 62, borderRadius: 999, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  avatarLabel: { fontFamily: SANS.bold, fontSize: 21, letterSpacing: -0.4, color: '#FFFFFF' },
-  name: { fontFamily: SANS.bold, fontSize: 22, letterSpacing: -0.65, lineHeight: 27, color: C.ink },
-  subline: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 4 },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 16 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 14, ...GLASS, borderRadius: 24, padding: 18 },
+  avatar: { width: 60, height: 60, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  avatarLabel: { fontFamily: SANS.bold, fontSize: 21, color: '#FFFFFF' },
+  name: { fontFamily: SANS.bold, fontSize: 21, letterSpacing: -0.5, color: C.ink },
+  handle: { fontFamily: SANS.medium, fontSize: 14.5, color: C.brand2, marginTop: 1 },
+  facts: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, marginTop: 3 },
+  planPill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'rgba(22,36,28,0.06)', alignSelf: 'flex-start' },
+  planPillPaid: { backgroundColor: C.brand },
+  planPillText: { fontFamily: SANS.semibold, fontSize: 13, color: C.ink2 },
+  planPillTextPaid: { color: '#FFFFFF' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   tag: { borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 },
-  tagOutline: { borderWidth: 1, borderColor: C.hair },
-  tagLabelWhite: { fontFamily: SANS.semibold, fontSize: 13, color: '#FFFFFF' },
-  tagLabelOutline: { fontFamily: SANS.semibold, fontSize: 13, color: C.ink2 },
-  sectionPad: { paddingTop: 22, paddingHorizontal: 4, paddingBottom: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
-  fieldInput: { textAlign: 'right', fontFamily: SANS.semibold, fontSize: 16, color: C.ink, minWidth: 100 },
-  readonlyValue: { fontFamily: SANS.semibold, fontSize: 16 },
-  sexBlock: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hair },
-  dietBlock: { paddingTop: 16, paddingBottom: 18 },
-  hintText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink3, lineHeight: 21, marginTop: 12 },
-  dataText: { fontFamily: SANS.regular, fontSize: 15, color: C.ink2, marginTop: 10, marginBottom: 16, lineHeight: 22 },
-  importantText: { fontFamily: SANS.regular, fontSize: 15, lineHeight: 23, color: C.ink2, marginTop: 10 },
+  tagWhite: { fontFamily: SANS.semibold, fontSize: 14, color: '#FFFFFF' },
+  tagOutline: { ...GLASS },
+  tagOutlineText: { fontFamily: SANS.semibold, fontSize: 14, color: C.ink2 },
+  disclaimer: { fontFamily: SANS.regular, fontSize: 13.5, lineHeight: 20, color: C.ink3, marginTop: 20, paddingHorizontal: 4 },
 });

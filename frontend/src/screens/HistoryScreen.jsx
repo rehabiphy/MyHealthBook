@@ -6,31 +6,23 @@ import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
-import { FILTERS, HISTORY_TYPES, monthLabel, normType, typeOf } from '../lib/history';
+import { ADDABLE_TYPES, FILTERS, RETIRED_TYPES, monthLabel, normType, typeOf } from '../lib/history';
 import { MAX_ATTACHMENT_MB, sizeLabel } from '../lib/attachments';
 import { useData } from '../state/DataContext';
+import { useSubscription, FEATURES } from '../state/SubscriptionContext';
+import { useGo } from '../navigation/useGo';
 import { useAsk } from '../state/AskDialogContext';
-import { useTabBarClearance } from '../navigation/TabBar';
-import Head from '../components/atoms/Head';
+import Screen from '../components/layout/Screen';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
 import Press from '../components/atoms/Press';
 import TypeIcon from '../components/icons/TypeIcon';
 import ReportViewer from '../components/ReportViewer';
-import { G } from '../components/icons/ScreenGlyphs';
 import LinearGradient from 'react-native-linear-gradient';
 
 const TITLE_FOR = { test: 'Test or scan name', diagnosis: 'Diagnosis', treatment: 'Treatment or medicine', procedure: 'Procedure, surgery or hospital', other: 'What is it about?' };
 const DETAIL_FOR = { test: 'What did the report show?', diagnosis: 'What did the doctor say?', treatment: 'Why was it given?', procedure: 'What was done, and what was found?', other: 'Details' };
-
-function CloseBtn({ onPress }) {
-  return (
-    <Press onPress={onPress} style={styles.closeBtn}>
-      <Text style={styles.closeLabel}>✕</Text>
-    </Press>
-  );
-}
 
 /* Defined here at module level, NOT inside HistoryScreen: a component
    created inside a render is a brand-new component type on every
@@ -75,7 +67,6 @@ function Line({ k, v }) {
 export default function HistoryScreen() {
   const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine, uploadRecordFile, recordFileUrl } = useData();
   const ask = useAsk();
-  const bottomPad = useTabBarClearance();
   const [view, setView] = useState('list'); // list | pick | form | detail
   const [type, setType] = useState('test');
   const [openId, setOpenId] = useState(null);
@@ -88,6 +79,14 @@ export default function HistoryScreen() {
   const [uploadPct, setUploadPct] = useState(null); // 0–1 while a report file is uploading
   const [fileError, setFileError] = useState('');
   const [viewing, setViewing] = useState(null); // the record whose report is open in the viewer
+  // Plus: advanced filters and organisation
+  const { can, limit } = useSubscription();
+  const go = useGo();
+  const advanced = can(FEATURES.ADVANCED_REPORTS);
+  const [period, setPeriod] = useState('all'); // all | 1y | 5y
+  const [withReports, setWithReports] = useState(false);
+  const [oldestFirst, setOldestFirst] = useState(false);
+  const [byYear, setByYear] = useState(false);
 
   const items = data.history || [];
   const say = m => {
@@ -111,18 +110,24 @@ export default function HistoryScreen() {
     if (view === 'form') setFileError('');
   }, [view]);
 
+  const periodStart = !advanced || period === 'all' ? 0 : Date.now() - (period === '1y' ? 1 : 5) * 365 * 864e5;
   const shown = items
     .filter(r => filter === 'all' || normType(r.type) === filter)
+    .filter(r => r.date >= periodStart)
+    .filter(r => !(advanced && withReports) || r.attachment)
     .filter(r => {
       if (!q.trim()) return true;
       const hay = `${r.title} ${r.details} ${r.doctor} ${r.hospital} ${r.medName} ${r.notes}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase());
     })
-    .sort((a, b) => b.date - a.date);
+    .sort((a, b) => (advanced && oldestFirst ? a.date - b.date : b.date - a.date));
+
+  const docCount = items.filter(r => r.attachment).length;
+  const docLimit = can(FEATURES.EXTENDED_STORAGE) ? null : limit('documents');
 
   const groups = [];
   shown.forEach(r => {
-    const key = monthLabel(r.date);
+    const key = advanced && byYear ? String(new Date(r.date).getFullYear()) : monthLabel(r.date);
     const last = groups[groups.length - 1];
     if (last && last.key === key) last.items.push(r);
     else groups.push({ key, items: [r] });
@@ -211,7 +216,8 @@ export default function HistoryScreen() {
     setFileError('');
     setUploadPct(0);
     try {
-      const upload = await uploadRecordFile(picked, setUploadPct);
+      // swapping the file on a record that already has one doesn't count against the Free plan's document limit
+      const upload = await uploadRecordFile(picked, setUploadPct, { replacing: Boolean(draft.attachment) });
       setDraft(d => ({ ...d, upload, removeAttachment: false }));
     } catch (err) {
       setFileError(err.message);
@@ -234,9 +240,8 @@ export default function HistoryScreen() {
   /* ── pick a record type ── */
   if (view === 'pick') {
     return (
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-        <Head title="Add a record" caption="what would you like to add?" right={<CloseBtn onPress={() => setView('list')} />} />
-        {HISTORY_TYPES.map(t => (
+      <Screen title="Add a record" subtitle="What would you like to add?" back={() => setView('list')}>
+        {ADDABLE_TYPES.map(t => (
           <Press
             key={t.key}
             onPress={() => {
@@ -244,7 +249,8 @@ export default function HistoryScreen() {
               setDraft(blank(t.key));
               setView('form');
             }}
-            style={styles.pickCard}>
+            style={styles.pickCard}
+          >
             <View style={[styles.pickIcon, { backgroundColor: `${t.color}30`, borderColor: `${t.color}55` }]}>
               <TypeIcon k={t.key} color={t.color} />
             </View>
@@ -254,7 +260,7 @@ export default function HistoryScreen() {
             </View>
           </Press>
         ))}
-      </ScrollView>
+      </Screen>
     );
   }
 
@@ -263,8 +269,7 @@ export default function HistoryScreen() {
     const t = typeOf(draft.type);
     const k = normType(draft.type);
     return (
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-        <Head title={t.label} caption="fill in what you know · you can edit later" right={<CloseBtn onPress={() => setView('list')} />} />
+      <Screen title={t.label} subtitle="Fill in what you know — you can edit it later" back={() => setView('list')}>
         <Card style={{ padding: 20 }}>
           <Mono>Date</Mono>
           <Press onPress={() => setShowDatePicker(true)} style={styles.dateBtn}>
@@ -360,7 +365,7 @@ export default function HistoryScreen() {
             {saving ? 'Saving…' : uploadPct != null ? 'Waiting for the upload…' : 'Save to medical history'}
           </Btn>
         </Card>
-      </ScrollView>
+      </Screen>
     );
   }
 
@@ -373,12 +378,7 @@ export default function HistoryScreen() {
     }
     const t = typeOf(r.type);
     return (
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-        <Head
-          title="Record"
-          caption={new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
-          right={<CloseBtn onPress={() => setView('list')} />}
-        />
+      <Screen title="Record" subtitle={new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })} back={() => setView('list')}>
         <Card style={{ padding: 20 }}>
           <View style={styles.detailTypeRow}>
             <View style={[styles.pickIcon, { width: 40, height: 40, backgroundColor: `${t.color}30`, borderColor: `${t.color}55` }]}>
@@ -436,21 +436,27 @@ export default function HistoryScreen() {
         )}
 
         <View style={styles.row3}>
-          <Btn kind="quiet" style={{ flex: 1, paddingVertical: 16 }} onClick={() => { setDraft(r); setView('form'); }}>
+          <Btn
+            kind="quiet"
+            style={{ flex: 1, paddingVertical: 16 }}
+            onClick={() => {
+              setDraft(r);
+              setView('form');
+            }}
+          >
             Edit
           </Btn>
           <Btn kind="quiet" style={{ flex: 1, paddingVertical: 16 }} textStyle={{ color: C.stage2 }} onClick={() => remove(r.id)}>
             Delete
           </Btn>
         </View>
-      </ScrollView>
+      </Screen>
     );
   }
 
   /* ── the timeline ── */
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-      <Head title="Medical History" caption="your medical journey, organised by date" icon={G.records(C.elevated)} tint={C.elevated} />
+    <Screen title="Medical records" subtitle="Your medical history, organised by date">
       {toast ? (
         <View style={styles.toastBanner}>
           <Text style={styles.toastText}>{toast}</Text>
@@ -464,7 +470,7 @@ export default function HistoryScreen() {
       <TextInput value={q} onChangeText={setQ} placeholder="Search your history" placeholderTextColor={C.ink3} style={styles.searchInput} />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-        {FILTERS.map(f => {
+        {FILTERS.filter(f => !RETIRED_TYPES.includes(f.key) || items.some(r => normType(r.type) === f.key)).map(f => {
           const on = filter === f.key;
           return (
             <Press key={f.key} onPress={() => setFilter(f.key)} style={styles.filterPillWrap}>
@@ -482,10 +488,41 @@ export default function HistoryScreen() {
         })}
       </ScrollView>
 
+      {advanced ? (
+        <View style={styles.advRow}>
+          {[
+            ['all', 'All time'],
+            ['1y', 'Last 12 months'],
+            ['5y', 'Last 5 years'],
+          ].map(([k, label]) => (
+            <Press key={k} onPress={() => setPeriod(k)} style={[styles.advChip, period === k && styles.advChipOn]}>
+              <Text style={[styles.advChipLabel, period === k && styles.advChipLabelOn]}>{label}</Text>
+            </Press>
+          ))}
+          <Press onPress={() => setWithReports(v => !v)} style={[styles.advChip, withReports && styles.advChipOn]}>
+            <Text style={[styles.advChipLabel, withReports && styles.advChipLabelOn]}>With reports</Text>
+          </Press>
+          <Press onPress={() => setByYear(v => !v)} style={[styles.advChip, byYear && styles.advChipOn]}>
+            <Text style={[styles.advChipLabel, byYear && styles.advChipLabelOn]}>By year</Text>
+          </Press>
+          <Press onPress={() => setOldestFirst(v => !v)} style={[styles.advChip, oldestFirst && styles.advChipOn]}>
+            <Text style={[styles.advChipLabel, oldestFirst && styles.advChipLabelOn]}>Oldest first</Text>
+          </Press>
+        </View>
+      ) : (
+        <Press onPress={() => go('premium')} style={styles.advHint}>
+          <Text style={styles.advHintText}>
+            {docLimit != null ? `${docCount} of ${docLimit} report documents on the Free plan. ` : ''}Filters by period and reports, year view and more storage come with MyHealthBook Plus.
+          </Text>
+        </Press>
+      )}
+
       {shown.length === 0 && (
         <Card style={{ marginTop: 14, padding: 20 }}>
           <Text style={styles.emptyTitle}>{items.length ? 'Nothing matches' : 'Your history is empty'}</Text>
-          <Text style={styles.emptySub}>{items.length ? 'Try another word or clear the filter.' : 'Add your past tests, diagnoses, procedures and hospital stays, with their reports. They’re saved safely to your account.'}</Text>
+          <Text style={styles.emptySub}>
+            {items.length ? 'Try another word or clear the filter.' : 'Add your past tests, diagnoses, procedures and hospital stays, with their reports. They’re saved safely to your account.'}
+          </Text>
         </Card>
       )}
 
@@ -502,7 +539,8 @@ export default function HistoryScreen() {
                   setOpenId(r.id);
                   setView('detail');
                 }}
-                style={styles.timelineRow}>
+                style={styles.timelineRow}
+              >
                 <View style={[styles.timelineDate, { backgroundColor: `${t.color}66`, borderColor: `${t.color}55` }]}>
                   <Text style={styles.timelineDay}>{d.getDate()}</Text>
                   <Text style={styles.timelineMonth}>{d.toLocaleDateString(undefined, { month: 'short' })}</Text>
@@ -528,12 +566,19 @@ export default function HistoryScreen() {
           })}
         </View>
       ))}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 20, paddingBottom: 120 },
+  advRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  advChip: { borderWidth: 1, borderColor: C.hair, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 11, backgroundColor: C.card },
+  advChipOn: { backgroundColor: C.ink, borderColor: C.ink },
+  advChipLabel: { fontFamily: SANS.semibold, fontSize: 12.5, color: C.ink2 },
+  advChipLabelOn: { color: '#FFFFFF' },
+  advHint: { marginTop: 10, paddingHorizontal: 4 },
+  advHintText: { fontFamily: SANS.regular, fontSize: 13, color: C.ink3, lineHeight: 18 },
   closeBtn: { width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   closeLabel: { color: C.ink, fontSize: 15 },
   pickCard: { flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: C.card, borderWidth: 1, borderColor: C.hair, borderRadius: 18, padding: 18, marginBottom: 10 },
@@ -542,7 +587,19 @@ const styles = StyleSheet.create({
   pickBlurb: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, marginTop: 3 },
   dateBtn: { marginTop: 8, borderWidth: 1, borderColor: C.hair, borderRadius: 14, padding: 14, backgroundColor: 'rgba(22,36,28,0.05)' },
   dateBtnLabel: { fontFamily: SANS.regular, fontSize: 16, color: C.ink },
-  fieldInput: { width: '100%', marginTop: 8, borderWidth: 1, borderColor: C.hair, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 14, fontFamily: SANS.regular, fontSize: 16, color: C.ink, backgroundColor: 'rgba(22,36,28,0.05)' },
+  fieldInput: {
+    width: '100%',
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: C.hair,
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 14,
+    fontFamily: SANS.regular,
+    fontSize: 16,
+    color: C.ink,
+    backgroundColor: 'rgba(22,36,28,0.05)',
+  },
   fieldInputMulti: { minHeight: 84, textAlignVertical: 'top' },
   medSectionHeader: { marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: C.hair },
   medSectionHint: { fontFamily: SANS.regular, fontSize: 14, color: C.ink2, marginTop: 6, lineHeight: 21 },
@@ -570,7 +627,19 @@ const styles = StyleSheet.create({
   row3: { flexDirection: 'row', gap: 8, marginTop: 10 },
   toastBanner: { backgroundColor: C.panelSoft, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 12 },
   toastText: { fontFamily: SANS.regular, fontSize: 14.5, color: C.onPanel2, lineHeight: 21 },
-  searchInput: { width: '100%', marginTop: 12, borderWidth: 1, borderColor: C.hair, borderRadius: 15, paddingVertical: 15, paddingHorizontal: 16, fontFamily: SANS.regular, fontSize: 16, color: C.ink, backgroundColor: 'rgba(22,36,28,0.05)' },
+  searchInput: {
+    width: '100%',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: C.hair,
+    borderRadius: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    fontFamily: SANS.regular,
+    fontSize: 16,
+    color: C.ink,
+    backgroundColor: 'rgba(22,36,28,0.05)',
+  },
   filterRow: { gap: 7, marginTop: 12, paddingBottom: 4 },
   filterPillWrap: {},
   filterPill: { borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16 },

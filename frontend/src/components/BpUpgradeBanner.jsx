@@ -14,7 +14,7 @@ export default function BpUpgradeBanner({ onPress, onDismiss }) {
   return (
     <View style={styles.noteBanner}>
       <Press onPress={onPress} style={{ flex: 1 }}>
-        <Text style={styles.noteText}>Want to understand your BP pattern? Premium can show your 7/30/90-day trend.</Text>
+        <Text style={styles.noteText}>See how your BP readings have moved over the last 30 days — longer periods come with MyHealthBook Plus.</Text>
       </Press>
       <Press onPress={onDismiss} style={styles.closeBtn} accessibilityLabel="dismiss">
         <Svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.onPanel2} strokeWidth="2" strokeLinecap="round">

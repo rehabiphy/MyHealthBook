@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { C } from '../theme/colors';
@@ -8,15 +8,13 @@ import { GRAD } from '../theme/gradients';
 import { useAuth } from '../state/AuthContext';
 import { useAsk } from '../state/AskDialogContext';
 import { useGo } from '../navigation/useGo';
-import { useTabBarClearance } from '../navigation/TabBar';
 import * as familyApi from '../lib/familyApi';
 import { scopeLabel } from '../lib/familyApi';
-import Head from '../components/atoms/Head';
+import Screen from '../components/layout/Screen';
 import Card from '../components/atoms/Card';
 import Mono from '../components/atoms/Mono';
 import Btn from '../components/atoms/Btn';
 import Press from '../components/atoms/Press';
-import { G } from '../components/icons/ScreenGlyphs';
 import FamilyInviteSheet, { initials } from '../components/family/FamilyInviteSheet';
 
 const EMPTY = { sharedWithMe: [], invites: [], myFamily: [] };
@@ -59,7 +57,6 @@ export default function FamilyScreen() {
   const { user, token } = useAuth();
   const ask = useAsk();
   const go = useGo();
-  const bottomPad = useTabBarClearance();
   const [family, setFamily] = useState(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -150,12 +147,17 @@ export default function FamilyScreen() {
 
   const view = link => go('familyMember', { ownerId: link.owner.id, name: link.owner.name, username: link.owner.username, scopes: link.scopes, openedAt: Date.now() });
 
-  const { invites, sharedWithMe, myFamily } = family;
+  const { invites, sharedWithMe, myFamily, memberLimit } = family;
+  // the limit comes from the owner's plan; people already added are never removed when it drops
+  const atLimit = memberLimit != null && myFamily.length >= memberLimit;
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[C.brand2]} />}>
-      <Head title="Family" icon={G.me(C.brand)} tint={C.brand} caption={user?.username ? `you are @${user.username}` : 'share your record'} />
-
+    <Screen
+      title="Family"
+      subtitle={user?.username ? `You are @${user.username}` : 'Share your record with family'}
+      back
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[C.brand2]} />}
+    >
       {note ? (
         <View style={styles.noteBanner}>
           <Text style={styles.noteText}>{note}</Text>
@@ -216,7 +218,9 @@ export default function FamilyScreen() {
       </View>
       <Card style={styles.card}>
         <Text style={styles.emptyText}>
-          {myFamily.length ? 'People you’ve shared your record with. Tap Edit to change what they can see.' : 'Invite family by their username. You choose which sections of your record they can see and edit.'}
+          {myFamily.length
+            ? 'People you’ve shared your record with. Tap Edit to change what they can see.'
+            : 'Invite family by their username. You choose which sections of your record they can see and edit.'}
         </Text>
         {myFamily.map(link => (
           <View key={link.id} style={styles.memberBlock}>
@@ -231,19 +235,40 @@ export default function FamilyScreen() {
                     <Text style={[styles.smallBtnLabel, { color: C.stage2 }]}>Remove</Text>
                   </Press>
                 </View>
-              }>
+              }
+            >
               {link.status !== 'accepted' && <Mono style={{ marginTop: 4, color: C.elevated }}>Invitation pending</Mono>}
               <ScopeTags scopes={link.scopes} />
             </Person>
           </View>
         ))}
-        <Btn style={{ marginTop: 14 }} onClick={() => setSheet({ editing: null })}>
-          + Invite someone
-        </Btn>
+        {memberLimit != null && (
+          <Mono style={{ marginTop: 12 }}>
+            {myFamily.length} of {memberLimit} family member{memberLimit === 1 ? '' : 's'}
+          </Mono>
+        )}
+        {atLimit ? (
+          <>
+            <Text style={[styles.emptyText, { marginTop: 8 }]}>
+              {memberLimit < 6
+                ? 'To share with more people, the Family plan allows up to 6. Everyone you’ve already added keeps their access.'
+                : 'You’ve reached the Family plan’s 6 members. Remove someone to invite another person.'}
+            </Text>
+            {memberLimit < 6 && (
+              <Btn kind="quiet" style={{ marginTop: 12 }} onClick={() => go('premium')}>
+                See Family plan
+              </Btn>
+            )}
+          </>
+        ) : (
+          <Btn style={{ marginTop: 14 }} onClick={() => setSheet({ editing: null })}>
+            + Invite someone
+          </Btn>
+        )}
       </Card>
 
       {sheet && <FamilyInviteSheet editing={sheet.editing} onSubmit={submitSheet} onClose={() => setSheet(null)} />}
-    </ScrollView>
+    </Screen>
   );
 }
 

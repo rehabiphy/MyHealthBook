@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { ARTICLES } from '../lib/articles';
-import { useTabBarClearance } from '../navigation/TabBar';
-import Head from '../components/atoms/Head';
+import Screen from '../components/layout/Screen';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
 import Rise from '../components/atoms/Rise';
-import { G } from '../components/icons/ScreenGlyphs';
 
 export default function LearnScreen() {
   const [open, setOpen] = useState(null);
-  const bottomPad = useTabBarClearance();
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-      <Head title="Learn" caption={`${ARTICLES.length} reads · general information, not advice`} icon={G.learn(C.low)} tint={C.low} />
+    <Screen title="Learn" subtitle={`${ARTICLES.length} short reads · general information, not advice`} back>
       {ARTICLES.map((a, i) => (
         <Press key={i} onPress={() => setOpen(open === i ? null : i)} style={styles.card}>
           <View style={styles.row}>
@@ -43,7 +39,7 @@ export default function LearnScreen() {
           )}
         </Press>
       ))}
-    </ScrollView>
+    </Screen>
   );
 }
 

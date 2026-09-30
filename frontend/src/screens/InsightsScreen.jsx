@@ -1,30 +1,30 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { useAuth } from '../state/AuthContext';
+import { useSubscription, FEATURES } from '../state/SubscriptionContext';
 import { useGo } from '../navigation/useGo';
-import { useTabBarClearance } from '../navigation/TabBar';
 import * as insightsApi from '../lib/insightsApi';
-import Head from '../components/atoms/Head';
+import Screen from '../components/layout/Screen';
 import Card from '../components/atoms/Card';
 import Btn from '../components/atoms/Btn';
 import Mono from '../components/atoms/Mono';
-import { G } from '../components/icons/ScreenGlyphs';
-
-const FREE_LIMIT = 3;
 
 export default function InsightsScreen() {
   const { user, token } = useAuth();
+  const { can, limit } = useSubscription();
   const go = useGo();
-  const bottomPad = useTabBarClearance();
   const [busy, setBusy] = useState(false);
   const [insights, setInsights] = useState('');
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [error, setError] = useState('');
 
-  const isPremium = user?.subscription === 'premium' && user?.premiumExpiry && new Date(user.premiumExpiry).getTime() > Date.now();
-  const used = user?.insightsUsedThisMonth || 0;
+  const unlimited = can(FEATURES.UNLIMITED_INSIGHTS) || limit('insightsPerMonth') === null;
+  const monthlyLimit = limit('insightsPerMonth');
+  // the server's count after each run, else the one from sign-in
+  const [usedNow, setUsedNow] = useState(null);
+  const used = usedNow ?? (user?.insightsUsedThisMonth || 0);
 
   const generate = async () => {
     setBusy(true);
@@ -33,6 +33,7 @@ export default function InsightsScreen() {
     try {
       const res = await insightsApi.generateInsights(token);
       setInsights(res.insights);
+      if (res.usage?.used != null) setUsedNow(res.usage.used);
     } catch (err) {
       if (err.quotaExceeded) setQuotaExceeded(true);
       else setError(err.message);
@@ -42,11 +43,9 @@ export default function InsightsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}>
-      <Head title="AI Health Insights" caption="Reads your BP, sugar & weight trends" icon={G.insights(C.brand)} tint={C.brand} />
-
+    <Screen title="AI health insights" subtitle="Your recorded trends, explained in plain words" back>
       <Card style={{ padding: 16 }}>
-        <Mono>{isPremium ? 'Unlimited · Premium' : `${used} of ${FREE_LIMIT} free this month`}</Mono>
+        <Mono>{unlimited ? 'Unlimited · included in your plan' : `${used} of ${monthlyLimit} free this month`}</Mono>
       </Card>
 
       <Btn style={{ marginTop: 12 }} disabled={busy} onClick={generate}>
@@ -55,10 +54,10 @@ export default function InsightsScreen() {
 
       {quotaExceeded && (
         <Card overlayColor="rgba(34,197,94,0.12)" style={{ marginTop: 12, padding: 18 }}>
-          <Text style={styles.upgradeTitle}>You've used your {FREE_LIMIT} free insights this month</Text>
-          <Text style={styles.upgradeSub}>Premium gives you unlimited AI Health Insights.</Text>
+          <Text style={styles.upgradeTitle}>You've used your {monthlyLimit} free insights this month</Text>
+          <Text style={styles.upgradeSub}>MyHealthBook Plus includes unlimited AI Health Insights. Your readings and history stay available either way.</Text>
           <Btn style={{ marginTop: 14 }} onClick={() => go('premium')}>
-            See Premium
+            See plans
           </Btn>
         </Card>
       )}
@@ -70,7 +69,7 @@ export default function InsightsScreen() {
           <Text style={styles.insightsText}>{insights}</Text>
         </Card>
       ) : null}
-    </ScrollView>
+    </Screen>
   );
 }
 

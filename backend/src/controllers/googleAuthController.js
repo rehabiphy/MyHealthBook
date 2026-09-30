@@ -20,8 +20,6 @@ function publicUser(user) {
     phone: user.phone,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
-    subscription: user.subscription,
-    premiumExpiry: user.premiumExpiry,
     insightsUsedThisMonth: user.insightsMonthKey === monthKey() ? user.insightsUsedThisMonth : 0,
   };
 }

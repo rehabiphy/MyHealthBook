@@ -27,8 +27,11 @@ export default function Btn({ children, onClick, onPress, kind = 'solid', disabl
   const onPressIn = () => !disabled && Animated.timing(scale, { toValue: 0.97, duration: 120, useNativeDriver: true }).start();
   const onPressOut = () => !disabled && Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }).start();
 
+  // JSX like {`+ Add `}{name} arrives as an array of strings — still plain text, so still drawn as the label
+  const isText = v => typeof v === 'string' || typeof v === 'number';
+  const plain = isText(children) || (Array.isArray(children) && children.every(isText));
   const label =
-    typeof children === 'string' || typeof children === 'number' ? (
+    plain ? (
       <Text style={[styles.label, { color: KIND_TEXT_COLOR[kind] }, textStyle]} numberOfLines={1}>
         {children}
       </Text>

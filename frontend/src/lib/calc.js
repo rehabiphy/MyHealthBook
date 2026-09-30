@@ -6,9 +6,9 @@ export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
 export const fmtDay = ts => {
-  if (sameDay(ts, Date.now())) return 'TODAY';
-  if (sameDay(ts, Date.now() - 864e5)) return 'YESTERDAY';
-  return new Date(ts).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }).toUpperCase();
+  if (sameDay(ts, Date.now())) return 'Today';
+  if (sameDay(ts, Date.now() - 864e5)) return 'Yesterday';
+  return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
 export const fmtTime = ts =>

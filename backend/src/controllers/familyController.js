@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import FamilyLink, { FAMILY_SCOPES } from '../models/FamilyLink.js';
 import { messaging } from '../utils/firebaseAdmin.js';
 import { isValidUsername, normalizeUsername } from '../utils/validators.js';
+import { resolveEntitlement, limitOf } from '../utils/entitlements.js';
 
 const personOf = u => (u ? { id: u._id.toString(), name: u.name, username: u.username || null } : null);
 
@@ -61,7 +62,8 @@ export async function getFamily(req, res) {
       invites.push({ ...base, owner: personOf(l.ownerId) });
     }
   }
-  return res.json({ success: true, sharedWithMe, invites, myFamily, scopes: FAMILY_SCOPES });
+  const ent = await resolveEntitlement(me);
+  return res.json({ success: true, sharedWithMe, invites, myFamily, scopes: FAMILY_SCOPES, memberLimit: limitOf(ent, 'familyMembers') });
 }
 
 /* GET /api/family/lookup?username=mom — confirms who a username belongs
@@ -108,6 +110,19 @@ export async function invite(req, res) {
     existing.scopes = scopes;
     await existing.save();
     return res.json({ success: true, link: { id: existing._id.toString(), scopes, status: existing.status, member: personOf(member) } });
+  }
+
+  /* How many people you can share your record with depends on your
+     plan (pending invites count). Going over it after a Family plan
+     ends never removes anyone — those links keep working; you just
+     can't add more until you're back under the limit or on Family. */
+  const limit = limitOf(await resolveEntitlement(req.user.id), 'familyMembers');
+  if (limit !== null && (await FamilyLink.countDocuments({ ownerId: req.user.id })) >= limit) {
+    return res.status(403).json({
+      success: false,
+      limitReached: 'familyMembers',
+      message: `Your plan lets you share with up to ${limit} family member${limit === 1 ? '' : 's'}. The Family plan allows up to 6.`,
+    });
   }
 
   const link = await FamilyLink.create({ ownerId: req.user.id, memberId: member._id, scopes });

@@ -8,6 +8,7 @@ import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/state/AuthContext';
 import { DataProvider } from './src/state/DataContext';
+import { SubscriptionProvider } from './src/state/SubscriptionContext';
 import { AskDialogProvider } from './src/state/AskDialogContext';
 import { configureGoogleSignIn } from './src/lib/googleAuth';
 import { setupForegroundNotifications } from './src/lib/notifications';
@@ -31,11 +32,13 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <AuthProvider>
-        <DataProvider>
-          <AskDialogProvider>
-            <RootNavigator />
-          </AskDialogProvider>
-        </DataProvider>
+        <SubscriptionProvider>
+          <DataProvider>
+            <AskDialogProvider>
+              <RootNavigator />
+            </AskDialogProvider>
+          </DataProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

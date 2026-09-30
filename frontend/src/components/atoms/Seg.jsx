@@ -15,7 +15,7 @@ export default function Seg({ options, value, onChange, style }) {
         return (
           <Pressable key={o.value} onPress={() => onChange(o.value)} style={({ pressed }) => [styles.opt, pressed && !on && styles.pressed]}>
             {on && <LinearGradient pointerEvents="none" colors={GRAD.colors} start={GRAD.start} end={GRAD.end} style={StyleSheet.absoluteFill} />}
-            <Text style={[styles.label, { color: on ? '#FFFFFF' : C.ink2 }]} numberOfLines={1}>
+            <Text style={[styles.label, { color: on ? '#FFFFFF' : C.ink2 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.2}>
               {o.label}
             </Text>
           </Pressable>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../theme/colors';
 import { SANS } from '../theme/typography';
 import { DataProvider, useData } from '../state/DataContext';
@@ -9,6 +10,7 @@ import { FAMILY_SCOPES } from '../lib/familyApi';
 import Mono from '../components/atoms/Mono';
 import Seg from '../components/atoms/Seg';
 import Press from '../components/atoms/Press';
+import { EmbeddedContext } from '../components/layout/Screen';
 import LogScreen from './LogScreen';
 import MedsScreen from './MedsScreen';
 import HistoryScreen from './HistoryScreen';
@@ -34,6 +36,7 @@ function LoadingVeil() {
    on every call. Only the sections they shared appear. */
 export default function FamilyMemberScreen({ route }) {
   const go = useGo();
+  const insets = useSafeAreaInsets();
   const { ownerId, name, username, scopes = [], openedAt } = route.params || {};
   const tabs = FAMILY_SCOPES.filter(s => scopes.includes(s.key));
   const [tab, setTab] = useState(tabs[0]?.key);
@@ -49,7 +52,7 @@ export default function FamilyMemberScreen({ route }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Press onPress={() => go('family')} style={styles.backBtn}>
           <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <Path d="M15 6l-6 6 6 6" />
@@ -72,7 +75,8 @@ export default function FamilyMemberScreen({ route }) {
       {/* keyed so a different person — or reopening — reloads fresh data */}
       <DataProvider key={`${ownerId}:${openedAt}`} familyOwner={ownerId} scopes={scopes}>
         <View style={{ flex: 1 }}>
-          {Section ? <Section /> : <Text style={styles.empty}>{name} isn't sharing anything with you right now.</Text>}
+          {/* the sections drop their own big titles here — this header already says whose record it is */}
+          <EmbeddedContext.Provider value={true}>{Section ? <Section /> : <Text style={styles.empty}>{name} isn't sharing anything with you right now.</Text>}</EmbeddedContext.Provider>
           <LoadingVeil />
         </View>
       </DataProvider>
@@ -81,7 +85,7 @@ export default function FamilyMemberScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 10 },
   backBtn: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, borderColor: C.hair, backgroundColor: C.cardSolid, alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: SANS.bold, fontSize: 21, letterSpacing: -0.6, color: C.ink },
   tabsWrap: { paddingHorizontal: 16, paddingBottom: 4 },

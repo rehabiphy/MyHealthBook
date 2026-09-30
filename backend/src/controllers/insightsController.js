@@ -3,10 +3,9 @@ import BpReading from '../models/BpReading.js';
 import BodyReading from '../models/BodyReading.js';
 import SugarReading from '../models/SugarReading.js';
 import Medicine from '../models/Medicine.js';
-import { isPremium } from '../utils/subscription.js';
+import { resolveEntitlement, canAccess, limitOf, FEATURES } from '../utils/entitlements.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const FREE_LIMIT = 3;
 const LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_POINTS = 60;
 
@@ -76,20 +75,22 @@ export async function generateInsights(req, res) {
   let user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-  const premium = isPremium(user);
+  const ent = await resolveEntitlement(user._id);
+  const monthlyLimit = limitOf(ent, 'insightsPerMonth');
+  const premium = canAccess(ent, FEATURES.UNLIMITED_INSIGHTS) || monthlyLimit === null;
   const key = monthKey();
 
   if (!premium) {
     if (user.insightsMonthKey !== key) {
       user = await User.findByIdAndUpdate(user._id, { insightsMonthKey: key, insightsUsedThisMonth: 0 }, { new: true });
     }
-    if (user.insightsUsedThisMonth >= FREE_LIMIT) {
-      return res.status(403).json({ success: false, quotaExceeded: true, message: `You've used your ${FREE_LIMIT} free insights this month. Upgrade to Premium for unlimited access.` });
+    if (user.insightsUsedThisMonth >= monthlyLimit) {
+      return res.status(403).json({ success: false, quotaExceeded: true, message: `You've used your ${monthlyLimit} free insights this month. MyHealthBook Plus includes unlimited insights.` });
     }
     // Atomic increment, re-checked in the filter — closes the race between
     // the read above and this write (e.g. two concurrent taps).
     user = await User.findOneAndUpdate(
-      { _id: user._id, insightsMonthKey: key, insightsUsedThisMonth: { $lt: FREE_LIMIT } },
+      { _id: user._id, insightsMonthKey: key, insightsUsedThisMonth: { $lt: monthlyLimit } },
       { $inc: { insightsUsedThisMonth: 1 } },
       { new: true },
     );
@@ -128,6 +129,6 @@ export async function generateInsights(req, res) {
   return res.json({
     success: true,
     insights: reply,
-    usage: premium ? { unlimited: true } : { used: user.insightsUsedThisMonth, limit: FREE_LIMIT },
+    usage: premium ? { unlimited: true } : { used: user.insightsUsedThisMonth, limit: monthlyLimit },
   });
 }

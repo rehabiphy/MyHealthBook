@@ -175,7 +175,7 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
   };
 
   // report files: uploaded before the record is saved, opened through a short-lived link
-  const uploadRecordFile = (file, onProgress) => uploadAttachment(file, token, onProgress);
+  const uploadRecordFile = (file, onProgress, opts) => uploadAttachment(file, token, onProgress, opts);
   const recordFileUrl = async id => (await recordsApi.getAttachmentUrl(id, token)).url;
 
   const promoteHistoryToMedicine = async record => {
