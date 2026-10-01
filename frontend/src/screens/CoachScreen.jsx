@@ -11,7 +11,9 @@ import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import Mono from '../components/atoms/Mono';
 import Press from '../components/atoms/Press';
+import ChatbotAvatar from '../components/assistant/ChatbotAvatar';
 import { useGo } from '../navigation/useGo';
+import { useNavigation } from '@react-navigation/native';
 
 const PROMPTS = [
   'Plan a low-salt day of meals for me',
@@ -55,8 +57,10 @@ export default function CoachScreen() {
   const scrollRef = useRef(null);
   const insets = useSafeAreaInsets();
   const go = useGo();
+  const navigation = useNavigation();
   const msgs = data.chat;
-  const back = () => go('home');
+  // opened from the floating chat button on any page — Back returns to that page (Home if there's none)
+  const back = () => (navigation.canGoBack() ? navigation.goBack() : go('home'));
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -93,6 +97,7 @@ export default function CoachScreen() {
               <Path d="M15 18l-6-6 6-6" />
             </Svg>
           </Press>
+          <ChatbotAvatar size={40} style={styles.avatar} />
           <View style={styles.titleBlock}>
             <Text style={styles.h1} numberOfLines={1}>
               AI coach
@@ -170,6 +175,7 @@ export default function CoachScreen() {
 }
 
 const styles = StyleSheet.create({
+  avatar: { borderWidth: 1.5, borderColor: C.hair },
   header: {
     paddingHorizontal: 14,
     paddingBottom: 12,

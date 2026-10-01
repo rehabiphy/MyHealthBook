@@ -169,6 +169,12 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
     return res.record;
   };
 
+  // records again from the server — to pick up what MyHealth AI has since read from an uploaded file
+  const refreshHistory = async () => {
+    const res = await recordsApi.getRecords(token);
+    setData(d => ({ ...d, history: res.records }));
+  };
+
   const deleteHistory = async id => {
     await recordsApi.deleteRecord(id, token);
     setData(d => ({ ...d, history: d.history.filter(r => r.id !== id) }));
@@ -251,6 +257,7 @@ export function DataProvider({ children, familyOwner = null, scopes = ALL_SCOPES
     deleteReading,
     deleteAllReadings,
     addOrUpdateHistory,
+    refreshHistory,
     deleteHistory,
     uploadRecordFile,
     recordFileUrl,

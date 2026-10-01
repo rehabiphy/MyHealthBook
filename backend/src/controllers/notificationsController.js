@@ -1,8 +1,65 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 import { sendHealthTip } from '../jobs/healthTips.js';
 
 const TEST_COOLDOWN_MS = 30 * 1000; // each test is an AI call — stop a finger on the button running up a bill
 const lastTest = new Map(); // userId → when they last asked
+
+const PAGE_SIZE = 30;
+
+const serialize = n => ({
+  id: n._id.toString(),
+  type: n.type,
+  title: n.title,
+  body: n.body,
+  data: n.data || {},
+  read: !!n.readAt,
+  createdAt: n.createdAt,
+});
+
+/* GET /api/notifications?before=<id> — newest first, a page at a time
+   (`before` is the last id of the previous page), plus how many are unread. */
+export async function listNotifications(req, res) {
+  const filter = { userId: req.user.id };
+  if (req.query.before && mongoose.isValidObjectId(req.query.before)) filter._id = { $lt: req.query.before };
+  const [items, unread] = await Promise.all([
+    Notification.find(filter)
+      .sort({ _id: -1 })
+      .limit(PAGE_SIZE + 1)
+      .lean(),
+    Notification.countDocuments({ userId: req.user.id, readAt: null }),
+  ]);
+  return res.json({ success: true, notifications: items.slice(0, PAGE_SIZE).map(serialize), hasMore: items.length > PAGE_SIZE, unread });
+}
+
+// GET /api/notifications/unread-count — for the badge on the Home bell
+export async function unreadCount(req, res) {
+  const unread = await Notification.countDocuments({ userId: req.user.id, readAt: null });
+  return res.json({ success: true, unread });
+}
+
+// POST /api/notifications/read  { ids?: string[] } — those, or all when no ids
+export async function markRead(req, res) {
+  const filter = { userId: req.user.id, readAt: null };
+  const ids = req.body?.ids;
+  if (Array.isArray(ids)) filter._id = { $in: ids.filter(id => mongoose.isValidObjectId(id)) };
+  await Notification.updateMany(filter, { $set: { readAt: new Date() } });
+  return res.json({ success: true });
+}
+
+// DELETE /api/notifications/:id
+export async function deleteNotification(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false, message: 'Notification not found' });
+  await Notification.deleteOne({ _id: req.params.id, userId: req.user.id });
+  return res.json({ success: true });
+}
+
+// DELETE /api/notifications — clears the whole list
+export async function clearNotifications(req, res) {
+  await Notification.deleteMany({ userId: req.user.id });
+  return res.json({ success: true });
+}
 
 // GET /api/notifications/settings
 export async function getNotificationSettings(req, res) {

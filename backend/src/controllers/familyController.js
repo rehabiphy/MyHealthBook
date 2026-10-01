@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import FamilyLink, { FAMILY_SCOPES } from '../models/FamilyLink.js';
-import { messaging } from '../utils/firebaseAdmin.js';
+import { notifyUser } from '../utils/push.js';
 import { isValidUsername, normalizeUsername } from '../utils/validators.js';
 import { resolveEntitlement, limitOf } from '../utils/entitlements.js';
 
@@ -18,18 +18,14 @@ async function findLink(id) {
   return FamilyLink.findById(id);
 }
 
-/* Best-effort push to the invitee's devices — an invite still works
-   (they see it on their Family page) if this fails or they have none. */
+/* Best-effort push to the invitee's devices (and their Notifications
+   page) — an invite still works (they see it on their Family page) if
+   this fails or they have none. */
 async function notifyInvite(member, owner) {
-  const tokens = member.fcmTokens || [];
-  if (!tokens.length) return;
   try {
-    await messaging.sendEachForMulticast({
-      tokens,
-      notification: {
-        title: 'Family invitation',
-        body: `${owner.name} (@${owner.username}) wants to share their health record with you`,
-      },
+    await notifyUser(member, {
+      title: 'Family invitation',
+      body: `${owner.name} (@${owner.username}) wants to share their health record with you`,
       data: { type: 'family_invite' },
     });
   } catch (err) {

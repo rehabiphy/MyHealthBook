@@ -12,11 +12,14 @@ export class LlmError extends Error {
   }
 }
 
-/* messages: [{ role: 'system'|'user'|'assistant', content }]
+/* messages: [{ role: 'system'|'user'|'assistant', content }] — content
+   is a string, or an array of parts (text / image_url / file) for a
+   message that carries a document.
    jsonSchema: optional { name, schema } — when set, the model is forced
    to reply with JSON matching it, and the parsed object is returned
-   instead of a string. */
-export async function complete({ messages, temperature = 0.6, jsonSchema }) {
+   instead of a string.
+   model: optional override of OPENAI_MODEL for this one call. */
+export async function complete({ messages, temperature = 0.6, jsonSchema, model }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new LlmError('not-configured', 'AI is not configured');
 
@@ -24,7 +27,7 @@ export async function complete({ messages, temperature = 0.6, jsonSchema }) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-nano',
+      model: model || process.env.OPENAI_MODEL || 'gpt-4.1-nano',
       messages,
       temperature,
       ...(jsonSchema ? { response_format: { type: 'json_schema', json_schema: { ...jsonSchema, strict: true } } } : {}),

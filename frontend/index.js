@@ -4,11 +4,12 @@
 
 import { AppRegistry } from 'react-native';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
-import notifee from '@notifee/react-native';
+import notifee, { EventType } from '@notifee/react-native';
 import App from './App';
 import { name as appName } from './app.json';
 import { handleSosPush } from './src/lib/sos';
 import { displayPush } from './src/lib/notifications';
+import { isListedPush, requestOpenInbox } from './src/lib/inbox';
 
 /* Runs headless when a data push arrives with the app in the background
    or killed — must be registered here, outside React, before
@@ -21,9 +22,12 @@ setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
   if (!remoteMessage.notification) await displayPush(remoteMessage);
 });
 
-/* Taps / dismissals of Notifee notifications (medicine reminders) while
-   the app is in the background. Nothing to do yet — a tap just opens the
-   app — but Notifee expects a handler to exist. */
-notifee.onBackgroundEvent(async () => {});
+/* Taps / dismissals of Notifee notifications while the app is in the
+   background. Tapping a server push (health tip, invite…) opens the
+   Notifications page once the app is up; a medicine reminder tap just
+   opens the app. */
+notifee.onBackgroundEvent(async ({ type, detail }) => {
+  if (type === EventType.PRESS && isListedPush(detail.notification?.data)) requestOpenInbox();
+});
 
 AppRegistry.registerComponent(appName, () => App);

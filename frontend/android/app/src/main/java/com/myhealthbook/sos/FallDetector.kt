@@ -29,14 +29,21 @@ class FallDetector(private val onFall: () -> Unit) {
        Those dip to ~0.5 g at best (FREE_FALL_DEPTH_G), land softly
        (IMPACT_G) and usually get picked up within a couple of seconds
        (STILL_MS, plus the orientation check — a phone picked up and held
-       steady still reads ~1 g, but it no longer points the same way). */
+       steady still reads ~1 g, but it no longer points the same way).
+
+       Then nudged once more, a little, because it still fired too easily:
+       depth 0.45 → 0.42 g, impact 3.0 → 3.5 g, still 3 → 4 s. Each keeps
+       a margin under the real drops above (0.31–0.38 g low, 4–5 g hit),
+       and a fallen person lies still far longer than 4 s. Free-fall time
+       is left at 80 ms — tilted drops spend only ~40–100 ms clearly
+       below threshold, so that's the one that would start missing them. */
     const val FREE_FALL_G = 0.6f
-    const val FREE_FALL_DEPTH_G = 0.45f // and it must dip at least this low somewhere in the free fall
+    const val FREE_FALL_DEPTH_G = 0.42f // and it must dip at least this low somewhere in the free fall
     const val FREE_FALL_MIN_MS = 80L
-    const val IMPACT_G = 3.0f
+    const val IMPACT_G = 3.5f
     const val IMPACT_WINDOW_MS = 1000L // impact must follow free fall within this
     const val SETTLE_MS = 500L // bounces after impact, ignored
-    const val STILL_MS = 3000L // then it has to stay put this long
+    const val STILL_MS = 4000L // then it has to stay put this long
     const val STILL_TOLERANCE_G = 0.25f // allowed wobble around 1 g while "still"
     const val STILL_TILT_DEG = 20.0 // allowed change in which way is "down" while "still"
     const val COOLDOWN_MS = 60_000L // one alert per minute at most

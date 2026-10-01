@@ -27,6 +27,9 @@ const RE = {
   askMeds: /(\bwhat\b|\bwhich\b|kaun|konsi|kya|कौन|क्या|\bdue\b)/,
   trend: /(\bshow\b|how is|how's|how has|trend|history|last \d+|last (week|month)|past|pichhle|पिछले|दिखा)/,
   nav: /(open|go to|take me to|show)\s+(?:me\s+)?(?:my\s+|the\s+)?(medicines?|meds|records?|history|profile|readings?|home|insights|coach|learn|health)/,
+  // something saved on the Records page — a report, prescription or bill
+  doc: /(report|prescription|\bbills?\b|invoice|receipt|\blab\b|blood test|test result|\bscan\b|x-?ray|\bmri\b|\bct\b|ultrasound|discharge|parcha|पर्चा|रिपोर्ट|बिल|जांच|जाँच)/,
+  question: /(\bwhat\b|\bwhich\b|\bwhen\b|\bhow much\b|\bhow many\b|\bdid\b|\bwas\b|\btell\b|\bfind\b|\btotal\b|kya|kitna|kitne|kab|kaun|batao|बताओ|क्या|कितना|कितने|कब|कौन)/,
 };
 
 const SLOT_GROUPS = [
@@ -248,6 +251,12 @@ export function parseCommand(rawText, pending = null) {
   if (pending?.intent === 'log_sugar' && pending.mgdl != null && sugarKindOf(t)) {
     return { ...blank('log_sugar'), mgdl: pending.mgdl, sugarKind: sugarKindOf(t) };
   }
+
+  /* A question about a saved report, prescription or bill ("what was my
+     sugar in the last report?", "how much was the hospital bill?") is
+     answered by the server's AI from the user's records — not taken as
+     a new sugar reading or a medicine to add. */
+  if (RE.doc.test(t) && RE.question.test(t) && !RE.nav.test(t)) return null;
 
   const hasMed = RE.med.test(t);
 

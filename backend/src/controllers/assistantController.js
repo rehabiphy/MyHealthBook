@@ -61,7 +61,7 @@ Intents:
 - ask_meds: asking which medicines to take (now, tonight, morning...).
 - show_trend: asking to see or understand past readings. metric + days (7 for "week", 30 for "month").
 - navigate: asking to open a section of the app.
-- chat: anything else — symptoms, feelings, diet, exercise, general health questions.
+- chat: anything else — symptoms, feelings, diet, exercise, general health questions, and questions about what is in their saved records, test reports, prescriptions or bills (e.g. "what did my last blood test show", "how much was my hospital bill", "what did the doctor prescribe in March").
 
 Rules: NEVER invent a number the user did not say — use null. NEVER suggest, add or change a medicine, dose or timing the user did not state themselves. Fill only fields relevant to the intent; everything else null.${
   pending ? `\n\nThe app just asked the user a follow-up question for intent "${pending}", so a bare answer (e.g. "142 88", "fasting") most likely belongs to that intent.` : ''

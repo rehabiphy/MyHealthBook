@@ -6,7 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { C } from '../theme/colors';
 import { SANS, MONO } from '../theme/typography';
 import { GRAD } from '../theme/gradients';
-import { ADDABLE_TYPES, FILTERS, RETIRED_TYPES, monthLabel, normType, typeOf } from '../lib/history';
+import { ADDABLE_TYPES, FILTERS, RETIRED_TYPES, monthLabel, normType, rupees, typeOf } from '../lib/history';
 import { MAX_ATTACHMENT_MB, sizeLabel } from '../lib/attachments';
 import { useData } from '../state/DataContext';
 import { useSubscription, FEATURES } from '../state/SubscriptionContext';
@@ -21,14 +21,38 @@ import TypeIcon from '../components/icons/TypeIcon';
 import ReportViewer from '../components/ReportViewer';
 import LinearGradient from 'react-native-linear-gradient';
 
-const TITLE_FOR = { test: 'Test or scan name', diagnosis: 'Diagnosis', treatment: 'Treatment or medicine', procedure: 'Procedure, surgery or hospital', other: 'What is it about?' };
-const DETAIL_FOR = { test: 'What did the report show?', diagnosis: 'What did the doctor say?', treatment: 'Why was it given?', procedure: 'What was done, and what was found?', other: 'Details' };
+const TITLE_FOR = {
+  test: 'Test or scan name',
+  prescription: 'What was it for?',
+  diagnosis: 'Diagnosis',
+  treatment: 'Treatment or medicine',
+  procedure: 'Procedure, surgery or hospital',
+  bill: 'What was the bill for?',
+  other: 'What is it about?',
+};
+const TITLE_HINT = { prescription: 'e.g. Fever, BP check-up', bill: 'e.g. Blood tests, Pharmacy, Hospital stay' };
+const DETAIL_FOR = {
+  test: 'What did the report show?',
+  prescription: 'Medicines and instructions',
+  diagnosis: 'What did the doctor say?',
+  treatment: 'Why was it given?',
+  procedure: 'What was done, and what was found?',
+  bill: 'What does it include?',
+  other: 'Details',
+};
+// the "Details" row on a saved record
+const DETAIL_LINE = { test: 'What it showed', prescription: 'Medicines and instructions', bill: 'Includes' };
+const PLACE_FOR = { test: 'Hospital or laboratory', bill: 'Hospital, clinic or pharmacy' };
+// what the attached file is called, per kind
+const FILE_WORD = { prescription: 'prescription', bill: 'bill' };
+const fileWord = k => FILE_WORD[k] || 'report';
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* Defined here at module level, NOT inside HistoryScreen: a component
    created inside a render is a brand-new component type on every
    render, so React unmounts and remounts it — the TextInput lost focus
    (and the keyboard closed) after every letter typed. */
-function Field({ label, keyName, draft, onChange, multi, placeholder }) {
+function Field({ label, keyName, draft, onChange, multi, placeholder, keyboardType }) {
   return (
     <View style={{ marginTop: 18 }}>
       <Mono>{label}</Mono>
@@ -37,6 +61,7 @@ function Field({ label, keyName, draft, onChange, multi, placeholder }) {
         onChangeText={t => onChange(keyName, t)}
         placeholder={placeholder}
         placeholderTextColor={C.ink3}
+        keyboardType={keyboardType}
         multiline={multi}
         numberOfLines={multi ? 3 : 1}
         style={[styles.fieldInput, multi && styles.fieldInputMulti]}
@@ -64,8 +89,41 @@ function Line({ k, v }) {
   );
 }
 
+/* What MyHealth AI read from the attached file — shown so the person
+   can check it, since this is exactly what the AI chat answers from. */
+function ExtractCard({ extract, word }) {
+  const status = extract?.status || 'pending';
+  const notMedical = status === 'done' && extract.text.startsWith('NOT A MEDICAL DOCUMENT');
+  const note =
+    status === 'pending'
+      ? `MyHealth AI is reading this ${word}. It usually takes under a minute.`
+      : status === 'unsupported'
+      ? `MyHealth AI can’t read this kind of photo (HEIC). Attach it again as a JPG or PDF to ask about it in the chat.`
+      : status === 'failed'
+      ? `MyHealth AI couldn’t read this ${word}. The chat will use what you typed above instead.`
+      : notMedical
+      ? `This file doesn’t look like a medical ${word}, so the chat won’t use it.`
+      : null;
+  return (
+    <Card style={{ marginTop: 10, padding: 20 }}>
+      <Mono>Read by MyHealth AI</Mono>
+      {note ? (
+        <View style={styles.extractNoteRow}>
+          {status === 'pending' && <ActivityIndicator size="small" color={C.brand} />}
+          <Text style={[styles.medDetailHint, { marginTop: 0, flex: 1 }]}>{note}</Text>
+        </View>
+      ) : (
+        <>
+          <Text style={styles.extractText}>{extract.text}</Text>
+          <Text style={styles.extractHint}>Read automatically, so it can contain mistakes — check it against the {word}. Ask about it any time in the AI chat.</Text>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function HistoryScreen() {
-  const { data, addOrUpdateHistory, deleteHistory, promoteHistoryToMedicine, uploadRecordFile, recordFileUrl } = useData();
+  const { data, addOrUpdateHistory, refreshHistory, deleteHistory, promoteHistoryToMedicine, uploadRecordFile, recordFileUrl } = useData();
   const ask = useAsk();
   const [view, setView] = useState('list'); // list | pick | form | detail
   const [type, setType] = useState('test');
@@ -105,6 +163,22 @@ export default function HistoryScreen() {
     return () => sub.remove();
   }, [view]);
 
+  /* A file just saved is read by MyHealth AI on the server within a
+     minute or so — look again every few seconds (for two minutes at
+     most) so the record shows what was read without reopening the app. */
+  const reading = items.some(r => r.extract?.status === 'pending');
+  useEffect(() => {
+    if (!reading) return undefined;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (tries > 15) clearInterval(timer);
+      refreshHistory().catch(() => {});
+    }, 8000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading]);
+
   // an upload error belongs to the form it happened in, not the next one
   useEffect(() => {
     if (view === 'form') setFileError('');
@@ -117,7 +191,8 @@ export default function HistoryScreen() {
     .filter(r => !(advanced && withReports) || r.attachment)
     .filter(r => {
       if (!q.trim()) return true;
-      const hay = `${r.title} ${r.details} ${r.doctor} ${r.hospital} ${r.medName} ${r.notes}`.toLowerCase();
+      // what MyHealth AI read from the file counts too — "find the bill with the MRI on it"
+      const hay = `${r.title} ${r.details} ${r.doctor} ${r.hospital} ${r.medName} ${r.notes} ${r.extract?.text || ''}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase());
     })
     .sort((a, b) => (advanced && oldestFirst ? a.date - b.date : b.date - a.date));
@@ -143,6 +218,7 @@ export default function HistoryScreen() {
     medName: '',
     medDose: '',
     notes: '',
+    amount: '',
     file: '',
     upload: null,
   });
@@ -288,14 +364,15 @@ export default function HistoryScreen() {
               }}
             />
           )}
-          <Field label={TITLE_FOR[k]} keyName="title" draft={draft} onChange={setField} placeholder="Required" />
-          <Field label={DETAIL_FOR[k]} keyName="details" draft={draft} onChange={setField} multi />
+          <Field label={TITLE_FOR[k]} keyName="title" draft={draft} onChange={setField} placeholder={TITLE_HINT[k] ? `Required · ${TITLE_HINT[k]}` : 'Required'} />
+          {k === 'bill' && <Field label="Total amount (₹)" keyName="amount" draft={draft} onChange={setField} placeholder="e.g. 1250" keyboardType="decimal-pad" />}
+          <Field label={DETAIL_FOR[k]} keyName="details" draft={draft} onChange={setField} multi placeholder={k === 'prescription' ? 'e.g. Paracetamol 650 mg, twice a day for 3 days' : undefined} />
           <Field label="Doctor" keyName="doctor" draft={draft} onChange={setField} />
-          <Field label={draft.type === 'test' ? 'Hospital or laboratory' : 'Hospital or clinic'} keyName="hospital" draft={draft} onChange={setField} />
-          {['treatment', 'diagnosis', 'procedure', 'other'].includes(k) && (
+          <Field label={PLACE_FOR[k] || 'Hospital or clinic'} keyName="hospital" draft={draft} onChange={setField} />
+          {['prescription', 'treatment', 'diagnosis', 'procedure', 'other'].includes(k) && (
             <>
               <View style={styles.medSectionHeader}>
-                <Mono>Medicine prescribed then — optional</Mono>
+                <Mono>{k === 'prescription' ? 'Main medicine — optional' : 'Medicine prescribed then — optional'}</Mono>
                 <Text style={styles.medSectionHint}>This is recorded as history. It does not become a medicine you are taking now.</Text>
               </View>
               <Field label="Medicine name" keyName="medName" draft={draft} onChange={setField} />
@@ -304,7 +381,7 @@ export default function HistoryScreen() {
           )}
           <Field label="Notes" keyName="notes" draft={draft} onChange={setField} multi />
           <View style={{ marginTop: 18 }}>
-            <Mono>Report</Mono>
+            <Mono>{cap(fileWord(k))}</Mono>
             {(() => {
               // the file this record will have once saved: a new upload, else the one it already has
               const current = draft.upload || (!draft.removeAttachment ? draft.attachment : null);
@@ -351,7 +428,7 @@ export default function HistoryScreen() {
                   <Press onPress={pickFile} style={styles.filePicker}>
                     <FileGlyph />
                     <Text style={styles.filePickerLabel}>Attach a photo or PDF</Text>
-                    <Text style={styles.fileHint}>Up to {MAX_ATTACHMENT_MB} MB · kept safely with your record</Text>
+                    <Text style={styles.fileHint}>Up to {MAX_ATTACHMENT_MB} MB · kept safely with your record, and MyHealth AI can answer questions about it</Text>
                   </Press>
                   {draft.file && !draft.removeAttachment ? (
                     <Text style={styles.fileHint}>Earlier only the name “{draft.file}” was noted — the file itself wasn’t saved. Attach it again to keep a copy.</Text>
@@ -388,10 +465,11 @@ export default function HistoryScreen() {
           </View>
           <Text style={styles.detailTitle}>{r.title}</Text>
           <View style={{ marginTop: 14 }}>
-            <Line k="What it showed" v={r.details} />
+            <Line k="Total amount" v={r.amount != null ? rupees(r.amount) : ''} />
+            <Line k={DETAIL_LINE[normType(r.type)] || 'What it showed'} v={r.details} />
             <Line k="Doctor" v={r.doctor} />
-            <Line k="Hospital" v={r.hospital} />
-            {r.attachment ? null : <Line k="Report" v={r.file ? `${r.file} (name only — the file wasn't saved)` : ''} />}
+            <Line k={normType(r.type) === 'bill' ? 'Billed by' : 'Hospital'} v={r.hospital} />
+            {r.attachment ? null : <Line k={cap(fileWord(normType(r.type)))} v={r.file ? `${r.file} (name only — the file wasn't saved)` : ''} />}
             <Line k="Notes" v={r.notes} />
           </View>
           {r.attachment && (
@@ -405,10 +483,11 @@ export default function HistoryScreen() {
                   {r.attachment.type === 'application/pdf' ? 'PDF' : 'Photo'} · {sizeLabel(r.attachment.size)}
                 </Text>
               </View>
-              <Text style={styles.viewFileLabel}>View report</Text>
+              <Text style={styles.viewFileLabel}>View {fileWord(normType(r.type))}</Text>
             </Press>
           )}
         </Card>
+        {r.attachment && <ExtractCard extract={r.extract} word={fileWord(normType(r.type))} />}
         {viewing && <ReportViewer record={viewing} getUrl={recordFileUrl} onClose={() => setViewing(null)} />}
         {toast ? (
           <View style={[styles.toastBanner, { marginTop: 10, marginBottom: 0 }]}>
@@ -440,7 +519,8 @@ export default function HistoryScreen() {
             kind="quiet"
             style={{ flex: 1, paddingVertical: 16 }}
             onClick={() => {
-              setDraft(r);
+              // the amount is edited as text
+              setDraft({ ...r, amount: r.amount != null ? String(r.amount) : '' });
               setView('form');
             }}
           >
@@ -521,7 +601,9 @@ export default function HistoryScreen() {
         <Card style={{ marginTop: 14, padding: 20 }}>
           <Text style={styles.emptyTitle}>{items.length ? 'Nothing matches' : 'Your history is empty'}</Text>
           <Text style={styles.emptySub}>
-            {items.length ? 'Try another word or clear the filter.' : 'Add your past tests, diagnoses, procedures and hospital stays, with their reports. They’re saved safely to your account.'}
+            {items.length
+              ? 'Try another word or clear the filter.'
+              : 'Add your tests, prescriptions, bills, procedures and hospital stays, with a photo or PDF of each. They’re saved safely to your account, and you can ask MyHealth AI about them.'}
           </Text>
         </Card>
       )}
@@ -554,8 +636,10 @@ export default function HistoryScreen() {
                       <TypeIcon k={r.type} color={t.color} />
                     </View>
                   </View>
-                  {r.details ? (
+                  {r.amount != null || r.details ? (
                     <Text style={styles.timelineDetails} numberOfLines={2}>
+                      {r.amount != null ? <Text style={styles.timelineAmount}>{rupees(r.amount)}</Text> : null}
+                      {r.amount != null && r.details ? '  ·  ' : ''}
                       {r.details}
                     </Text>
                   ) : null}
@@ -655,5 +739,9 @@ const styles = StyleSheet.create({
   timelineTitle: { flex: 1, fontFamily: SANS.semibold, fontSize: 17, letterSpacing: -0.4, color: C.ink },
   timelineIcon: { flexShrink: 0, width: 30, height: 30, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   timelineDetails: { fontFamily: SANS.regular, fontSize: 14.5, color: C.ink2, marginTop: 5, lineHeight: 20 },
+  timelineAmount: { fontFamily: SANS.semibold, color: C.ink },
+  extractNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  extractText: { fontFamily: SANS.regular, fontSize: 15, color: C.ink, marginTop: 10, lineHeight: 22 },
+  extractHint: { fontFamily: SANS.regular, fontSize: 13.5, color: C.ink3, marginTop: 12, lineHeight: 19 },
   timelineMedTag: { fontFamily: MONO.medium, fontSize: 12, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 8 },
 });

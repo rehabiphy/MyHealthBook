@@ -30,6 +30,20 @@ export default function TypeIcon({ k, color }) {
         <Path {...s} d="M16 8l3.5-3.5" />
       </G>
     ),
+    // a sheet with the ℞ mark
+    prescription: (
+      <G>
+        <Rect {...s} x="5" y="3.5" width="14" height="17" rx="2.5" />
+        <Path {...s} d="M9 8v6M9 8h2.2a1.6 1.6 0 0 1 0 3.2H9M10.8 11.2l3.7 4.3M14.5 11.6l-2.6 3.1" />
+      </G>
+    ),
+    // a receipt with a torn bottom edge and the ₹ sign
+    bill: (
+      <G>
+        <Path {...s} d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" />
+        <Path {...s} d="M9.5 8h5M9.5 10.5h5M11 8c1.6 0 2.5.9 2.5 2.5S12.6 13 11 13H9.5l3.5 3.5" />
+      </G>
+    ),
     other: (
       <G>
         <Path {...s} d="M6 4.5h8.5L19 9v10.5H6z" />

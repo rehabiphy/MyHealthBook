@@ -98,6 +98,12 @@ export async function presignView(key, name, type) {
   return getSignedUrl(s3(), command, { expiresIn: VIEW_TTL_S });
 }
 
+/** The file's bytes, for the server's own use (reading a report with AI) — never sent to the phone this way. */
+export async function getObjectBytes(key) {
+  const res = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+  return Buffer.from(await res.Body.transformToByteArray());
+}
+
 export async function deleteObject(key) {
   await s3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
 }

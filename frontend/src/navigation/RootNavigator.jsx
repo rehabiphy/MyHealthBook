@@ -17,10 +17,13 @@ import { useReminders } from '../lib/meds';
 import { registerOpen, RESUME_AFTER_MS } from '../lib/promo';
 import AssistantOrb from '../components/assistant/AssistantOrb';
 import AssistantOverlay from '../components/assistant/AssistantOverlay';
+import ChatFab from '../components/assistant/ChatFab';
 import useLaunchGreeting from '../lib/assistant/useLaunchGreeting';
 import SosLayer from '../components/sos/SosLayer';
 import SubscriptionPromo from '../components/SubscriptionPromo';
 import { displayName } from '../lib/appName';
+import notifee, { EventType } from '@notifee/react-native';
+import { isListedPush, onOpenInbox, requestOpenInbox } from '../lib/inbox';
 
 import HomeScreen from '../screens/HomeScreen';
 import LogScreen from '../screens/LogScreen';
@@ -39,6 +42,7 @@ import TrendsScreen from '../screens/TrendsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import ProfileDetailsScreen from '../screens/ProfileDetailsScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import SafetyScreen from '../screens/SafetyScreen';
 import DataReportsScreen from '../screens/DataReportsScreen';
 
@@ -53,6 +57,9 @@ const NAV_THEME = { ...DefaultTheme, colors: { ...DefaultTheme.colors, backgroun
 const FULL_SCREEN = ['coach', 'premiumCheckout'];
 // no dose banner / voice orb over these — money, chat, or someone else's record
 const QUIET = ['meds', 'coach', 'premium', 'premiumCheckout', 'subscription', 'familyMember'];
+// the voice orb, and the AI chat button stacked above it
+const ORB_SIZE = 58;
+const CHAT_SIZE = 46;
 // never interrupt these with the plans pop-up
 const NO_PROMO = ['premium', 'premiumCheckout', 'subscription', 'coach', 'familyMember'];
 
@@ -147,6 +154,30 @@ function usePlanPromo(activeKey) {
   return [visible, () => setVisible(false)];
 }
 
+/* Tapping a server push in the tray opens the Notifications page —
+   whether the tap launched the app, brought it back from the
+   background (index.js queues it), or came while it was open. */
+function useOpenInboxOnTap(go) {
+  const goRef = useRef(go);
+  goRef.current = go;
+
+  useEffect(() => {
+    // after this render, so the navigator has registered its screens
+    const off = onOpenInbox(() => setTimeout(() => goRef.current('notifications'), 0));
+    notifee
+      .getInitialNotification()
+      .then(n => isListedPush(n?.notification?.data) && requestOpenInbox())
+      .catch(() => {});
+    const offFg = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS && isListedPush(detail.notification?.data)) requestOpenInbox();
+    });
+    return () => {
+      off();
+      offFg();
+    };
+  }, []);
+}
+
 function RootShell({ navigationRef, activeKey }) {
   const { data, loaded } = useData();
   const insets = useSafeAreaInsets();
@@ -158,6 +189,7 @@ function RootShell({ navigationRef, activeKey }) {
   useLaunchGreeting(displayName(data.profile, user), loaded);
 
   const go = (key, params) => navigationRef.navigate(key, params);
+  useOpenInboxOnTap(go);
 
   const fullScreen = FULL_SCREEN.includes(activeKey);
   /* The dose banner is about the signed-in user's own medicines, so it
@@ -186,6 +218,7 @@ function RootShell({ navigationRef, activeKey }) {
           <Tab.Screen name="family" component={FamilyScreen} />
           <Tab.Screen name="familyMember" component={FamilyMemberScreen} />
           <Tab.Screen name="profileDetails" component={ProfileDetailsScreen} />
+          <Tab.Screen name="notifications" component={NotificationsScreen} />
           <Tab.Screen name="notificationSettings" component={NotificationSettingsScreen} />
           <Tab.Screen name="safety" component={SafetyScreen} />
           <Tab.Screen name="dataReports" component={DataReportsScreen} />
@@ -200,7 +233,8 @@ function RootShell({ navigationRef, activeKey }) {
       {!fullScreen && <View pointerEvents="none" style={[styles.statusScrim, { height: insets.top }]} />}
 
       {showBanner && <DoseBanner data={data} go={go} bottom={tabTop + 10} />}
-      {showOrb && <AssistantOrb size={58} onPress={() => setAssistantOpen(true)} style={[styles.orb, { bottom: orbBottom }]} />}
+      {showOrb && <ChatFab size={CHAT_SIZE} onPress={() => go('coach')} style={[styles.chatFab, { bottom: orbBottom + ORB_SIZE + 12 }]} />}
+      {showOrb && <AssistantOrb size={ORB_SIZE} onPress={() => setAssistantOpen(true)} style={[styles.orb, { bottom: orbBottom }]} />}
       <AssistantOverlay visible={assistantOpen} onClose={() => setAssistantOpen(false)} go={go} />
       <SubscriptionPromo
         visible={promoVisible}
@@ -222,4 +256,6 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 15 },
   statusScrim: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: 'rgba(236,247,241,0.96)', zIndex: 30 },
   orb: { position: 'absolute', right: 16, zIndex: 50 },
+  // centred over the orb
+  chatFab: { position: 'absolute', right: 16 + (ORB_SIZE - CHAT_SIZE) / 2, zIndex: 50 },
 });

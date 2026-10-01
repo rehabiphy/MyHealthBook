@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import FamilyLink from '../models/FamilyLink.js';
 import SosAlert, { SOS_WINDOW_MS } from '../models/SosAlert.js';
 import { messaging } from '../utils/firebaseAdmin.js';
+import { recordNotification } from '../utils/push.js';
 
 /* A late push still reaches the phone (it then shows a quiet "missed
    SOS" instead of ringing), so let FCM hold it well past the window. */
@@ -62,11 +63,7 @@ async function pushTo(userIds, data) {
       data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v ?? '')])),
       android: { priority: 'high', ttl: PUSH_TTL_MS },
     });
-    const dead = tokens.filter(
-      (t, i) =>
-        !res.responses[i].success &&
-        ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(res.responses[i].error?.code),
-    );
+    const dead = tokens.filter((t, i) => !res.responses[i].success && ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(res.responses[i].error?.code));
     if (dead.length) await User.updateMany({ fcmTokens: { $in: dead } }, { $pull: { fcmTokens: { $in: dead } } });
   } catch (err) {
     console.warn('SOS push failed:', err.message);
@@ -104,9 +101,7 @@ function serialize(alert, me) {
 async function endAlert(alertId, status) {
   clearTimeout(expiryTimers.get(alertId));
   expiryTimers.delete(alertId);
-  const alert = await SosAlert.findOneAndUpdate({ _id: alertId, status: 'active' }, { status, endedAt: new Date() }, { new: true })
-    .populate('userId', 'name username')
-    .lean();
+  const alert = await SosAlert.findOneAndUpdate({ _id: alertId, status: 'active' }, { status, endedAt: new Date() }, { new: true }).populate('userId', 'name username').lean();
   if (!alert) return null;
   await pushTo(
     alert.recipients.map(r => r.userId),
@@ -175,6 +170,14 @@ export async function raiseSos(req, res) {
     location,
   });
   scheduleExpiry(alert);
+
+  // the alarm itself is drawn natively; this is what stays on each person's Notifications page afterwards
+  await recordNotification(family, {
+    type: 'sos',
+    title: `SOS from ${sender.name}`,
+    body: trigger === 'fall' ? `A fall was detected on ${sender.name}'s phone.` : `${sender.name} asked for help.`,
+    data: { alertId: alert._id.toString(), fromUsername: sender.username || '', mapsUrl: mapsUrlOf(location) || '' },
+  });
 
   await pushTo(family, {
     type: 'sos',

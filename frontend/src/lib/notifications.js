@@ -4,6 +4,7 @@ import notifee, { AndroidImportance, AuthorizationStatus } from '@notifee/react-
 import { handleSosPush } from './sos';
 import { ensureMedChannel } from './medReminders';
 import { ACCENT, LARGE_ICON } from './notificationStyle';
+import { inboxChanged } from './inbox';
 
 /* @react-native-firebase/messaging v26 uses the modular API (no more
    messaging().getToken()) — every call takes the Messaging instance
@@ -111,6 +112,7 @@ export function setupForegroundNotifications() {
   channelsReady ||= ensureChannels().catch(() => {});
 
   return onMessage(messagingInstance, async remoteMessage => {
+    inboxChanged(); // the server saved it to the Notifications list before sending
     if (handleSosPush(remoteMessage)) return; // rings natively, shown in-app by SosLayer
     await displayPush(remoteMessage);
   });

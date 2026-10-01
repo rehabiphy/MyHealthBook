@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import HistoryRecord from '../models/HistoryRecord.js';
+import HistoryRecord, { RECORD_TYPES } from '../models/HistoryRecord.js';
+import { queueDocumentRead } from '../jobs/documentReader.js';
 import { isNonEmptyString, isOneOf } from '../utils/validators.js';
 import { resolveEntitlement, canAccess, limitOf, FEATURES } from '../utils/entitlements.js';
 import {
@@ -14,9 +15,19 @@ import {
   userRecordsPrefix,
 } from '../utils/s3.js';
 
-const HISTORY_TYPES = ['test', 'diagnosis', 'treatment', 'procedure', 'other'];
+const HISTORY_TYPES = RECORD_TYPES;
 // `attachment` is handled on its own (resolveAttachment), never written straight from the body
-const PATCHABLE_FIELDS = ['type', 'date', 'title', 'details', 'doctor', 'hospital', 'medName', 'medDose', 'notes', 'file', 'promoted'];
+const PATCHABLE_FIELDS = ['type', 'date', 'title', 'details', 'doctor', 'hospital', 'medName', 'medDose', 'notes', 'file', 'promoted', 'amount'];
+// a new file is read by MyHealth AI (jobs/documentReader.js) — this marks it for reading
+const PENDING_EXTRACT = { status: 'pending', text: '', attempts: 0, at: null };
+
+// a bill's total: a non-negative number, or null for "not given" (the form sends text)
+function parseAmount(v) {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const n = Number(String(v).replace(/[₹,\s]/g, ''));
+  return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : NaN;
+}
 const MAX_MB = MAX_ATTACHMENT_BYTES / 1024 / 1024;
 const KEY_SHAPE = new RegExp(`^users/[0-9a-f]{24}/records/[0-9a-f-]{36}\\.(${[...new Set(Object.values(ATTACHMENT_TYPES))].join('|')})$`);
 
@@ -37,6 +48,9 @@ function publicRecord(doc) {
     file: doc.file,
     // the S3 key stays server-side — the app opens a file through GET /:id/attachment
     attachment: doc.attachment ? { name: doc.attachment.name, type: doc.attachment.type, size: doc.attachment.size } : null,
+    // what MyHealth AI read from the file, shown on the record so the person can check it
+    extract: doc.attachment && doc.extract ? { status: doc.extract.status, text: doc.extract.text } : null,
+    amount: doc.amount ?? null,
     promoted: doc.promoted,
     createdAt: doc.createdAt,
   };
@@ -121,12 +135,16 @@ export async function getUploadUrl(req, res) {
 
 export async function createRecord(req, res) {
   const { type, title, date, details, doctor, hospital, medName, medDose, notes, file, attachment } = req.body || {};
+  const amount = parseAmount(req.body?.amount);
 
   if (!isOneOf(type, HISTORY_TYPES)) {
     return res.status(400).json({ success: false, message: 'Please choose a record type' });
   }
   if (!isNonEmptyString(title, { max: 200 })) {
     return res.status(400).json({ success: false, message: 'Please enter a title' });
+  }
+  if (Number.isNaN(amount)) {
+    return res.status(400).json({ success: false, message: 'Please enter the amount as a number, like 1250' });
   }
 
   let stored = null;
@@ -146,8 +164,11 @@ export async function createRecord(req, res) {
     title: title.trim(),
     date: typeof date === 'number' ? date : Date.now(),
     details, doctor, hospital, medName, medDose, notes, file,
+    amount: amount ?? null,
     attachment: stored,
+    extract: stored ? PENDING_EXTRACT : null,
   });
+  if (stored) queueDocumentRead();
   return res.status(201).json({ success: true, record: publicRecord(record) });
 }
 
@@ -171,6 +192,12 @@ export async function updateRecord(req, res) {
   for (const key of PATCHABLE_FIELDS) {
     if (patch[key] !== undefined) whitelisted[key] = patch[key];
   }
+  if (whitelisted.amount !== undefined) {
+    whitelisted.amount = parseAmount(whitelisted.amount);
+    if (Number.isNaN(whitelisted.amount)) {
+      return res.status(400).json({ success: false, message: 'Please enter the amount as a number, like 1250' });
+    }
+  }
 
   let oldKey = null;
   if (patch.attachment !== undefined) {
@@ -179,6 +206,7 @@ export async function updateRecord(req, res) {
     const currentKey = current.attachment?.key || null;
     if (patch.attachment === null) {
       whitelisted.attachment = null;
+      whitelisted.extract = null;
       oldKey = currentKey;
     } else if (patch.attachment?.key && patch.attachment.key !== currentKey) {
       // swapping one file for another doesn't add a document; only a record gaining its first file does
@@ -191,6 +219,7 @@ export async function updateRecord(req, res) {
       } catch (err) {
         return attachmentFailure(res, err);
       }
+      whitelisted.extract = PENDING_EXTRACT;
       oldKey = currentKey;
     }
     // same key as now, or the record's own { name, type, size } echoed back by an edit → file unchanged
@@ -201,6 +230,7 @@ export async function updateRecord(req, res) {
     return res.status(404).json({ success: false, message: 'Record not found' });
   }
   removeFile(oldKey); // only once the record no longer points at it
+  if (whitelisted.extract) queueDocumentRead();
   return res.json({ success: true, record: publicRecord(record) });
 }
 

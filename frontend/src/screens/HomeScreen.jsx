@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { C, GLASS } from '../theme/colors';
 import { SANS } from '../theme/typography';
@@ -8,6 +9,8 @@ import { bmiOf, classifyBMI, classifyBP, classifySugar, fmtDay, fmtTime, kg1 } f
 import { dosesToday, isTaken, prettyTime, slotOf } from '../lib/meds';
 import { displayName, greeting, greetingName } from '../lib/appName';
 import { upcomingOf } from '../lib/summary';
+import { getUnreadCount } from '../lib/notificationsApi';
+import { onInboxChanged } from '../lib/inbox';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { useSubscription } from '../state/SubscriptionContext';
@@ -84,6 +87,30 @@ const People = ({ c }) => (
   </Svg>
 );
 
+/* How many notifications are unread — looked up each time Home comes
+   into view and whenever a push arrives or the list is read. */
+function useUnreadCount() {
+  const { token } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  const refresh = useCallback(() => {
+    if (!token) return;
+    getUnreadCount(token)
+      .then(res => setUnread(res.unread))
+      .catch(() => {}); // only a badge — keep what's showing
+  }, [token]);
+
+  useFocusEffect(refresh);
+  // a push lands a moment after the server saved it — no need to race it
+  useEffect(() => onInboxChanged(() => setTimeout(refresh, 300)), [refresh]);
+  // pushes that came while the app was in the background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => s === 'active' && refresh());
+    return () => sub.remove();
+  }, [refresh]);
+  return unread;
+}
+
 /* Home answers three questions, in this order: what do I need to do
    today (medicines), how am I doing (latest readings), and where is
    everything else (shortcuts). Nothing else competes for the space. */
@@ -93,6 +120,7 @@ export default function HomeScreen() {
   const { tier } = useSubscription();
   const go = useGo();
   const [busy, setBusy] = useState(null);
+  const unread = useUnreadCount();
 
   const bp = data.bp[0];
   const w = data.body[0];
@@ -131,7 +159,7 @@ export default function HomeScreen() {
           <IconButton label="Learn" onPress={() => go('learn')}>
             {G.learn(C.ink)}
           </IconButton>
-          <IconButton label="Today's medicines" onPress={() => go('meds')} badge={due.length > 0}>
+          <IconButton label={unread ? `Notifications, ${unread} new` : 'Notifications'} onPress={() => go('notifications')} badge={unread > 0}>
             <Bell c={C.ink} />
           </IconButton>
         </>

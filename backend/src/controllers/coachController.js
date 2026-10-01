@@ -4,6 +4,7 @@ import SugarReading from '../models/SugarReading.js';
 import Profile from '../models/Profile.js';
 import Medicine from '../models/Medicine.js';
 import DoseLog from '../models/DoseLog.js';
+import HistoryRecord from '../models/HistoryRecord.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -71,16 +72,87 @@ export async function buildAccountContext(userId) {
       activeMeds.reduce((sum, m) => sum + (m.slots?.length || 0), 0) * 7,
     ]);
     const pct = dueSlots ? Math.round((doneCount / dueSlots) * 100) : null;
-    parts.push(`${activeMeds.length} active medicine${activeMeds.length === 1 ? '' : 's'}${pct != null ? `, ~${pct}% dose adherence over the last 7 days` : ''}`);
+    const names = activeMeds.map(m => `${m.name}${m.dose ? ` ${m.dose}` : ''}`).join(', ');
+    parts.push(`${activeMeds.length} current medicine${activeMeds.length === 1 ? '' : 's'} (${names})${pct != null ? `, ~${pct}% dose adherence over the last 7 days` : ''}`);
   } else {
     parts.push('no active medicines on record');
   }
 
-  return parts.length ? parts.join('; ') : 'no health data recorded yet';
+  const summary = parts.length ? parts.join('; ') : 'no health data recorded yet';
+  return `${summary}.\n\n${await recordsContext(userId)}`;
+}
+
+const RECORD_LABEL = {
+  test: 'Test or scan',
+  prescription: 'Prescription',
+  diagnosis: 'Diagnosis',
+  treatment: 'Treatment',
+  procedure: 'Procedure or hospital stay',
+  bill: 'Bill',
+  other: 'Other record',
+  // records saved under the app's older type names
+  report: 'Test or scan',
+  hospital: 'Procedure or hospital stay',
+  visit: 'Treatment',
+  note: 'Other record',
+};
+const MAX_RECORDS = 25;
+const MAX_DOC_CHARS = 1500;
+const MAX_RECORDS_CHARS = 14000;
+
+const fmtRecordDate = ms => new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+const oneLine = s =>
+  String(s || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/* The user's Records page — what they typed for each record, plus what
+   MyHealth AI read from its uploaded file (jobs/documentReader.js) — so
+   the chat can answer "what did my last blood test show?" or "how much
+   were my hospital bills?". Newest first, capped so a long history
+   can't crowd out the conversation. */
+async function recordsContext(userId) {
+  const records = await HistoryRecord.find({ userId }, 'type date title details doctor hospital medName medDose notes amount attachment.name attachment.type extract.status extract.text')
+    .sort({ date: -1 })
+    .limit(MAX_RECORDS)
+    .lean();
+  if (!records.length) return 'Medical records on file: none saved yet.';
+
+  const lines = [];
+  let used = 0;
+  for (const r of records) {
+    const facts = [
+      `${fmtRecordDate(r.date)} · ${RECORD_LABEL[r.type] || 'Record'} · "${oneLine(r.title)}"`,
+      r.details && `details: ${oneLine(r.details)}`,
+      r.doctor && `doctor: ${oneLine(r.doctor)}`,
+      r.hospital && `place: ${oneLine(r.hospital)}`,
+      r.amount != null && `amount: ₹${r.amount.toLocaleString('en-IN', { minimumFractionDigits: r.amount % 1 ? 2 : 0, maximumFractionDigits: 2 })}`,
+      r.medName && `medicine then: ${oneLine(r.medName)}${r.medDose ? ` ${oneLine(r.medDose)}` : ''}`,
+      r.notes && `notes: ${oneLine(r.notes)}`,
+    ].filter(Boolean);
+    let entry = `- ${facts.join(' · ')}`;
+    if (r.attachment) {
+      const ex = r.extract;
+      if (ex?.status === 'done' && ex.text && !ex.text.startsWith('NOT A MEDICAL DOCUMENT')) entry += `\n  Uploaded document says:\n  ${ex.text.slice(0, MAX_DOC_CHARS).replace(/\n/g, '\n  ')}`;
+      else if (ex?.status === 'pending' || !ex) entry += "\n  (a document is attached but hasn't been read yet)";
+      else entry += "\n  (a document is attached but its contents couldn't be read)";
+    }
+    if (used + entry.length > MAX_RECORDS_CHARS) {
+      lines.push('- …older records not shown');
+      break;
+    }
+    lines.push(entry);
+    used += entry.length;
+  }
+  return `Medical records on file (newest first; "Uploaded document says" is text read from the user's uploaded file by AI and can contain reading mistakes):\n${lines.join('\n')}`;
 }
 
 export const SYSTEM_PROMPT = context =>
-  `You are the AI health coach embedded in the MyHealthBook app. You help with practical advice about food, exercise, sleep and daily habits, tailored to what the user has recorded. You are NOT a doctor: never diagnose, never prescribe or suggest changing a medicine, and encourage seeing a real doctor for anything medical. Keep replies short and practical, and refer to the user's own numbers when relevant.\n\nWhat's on record for this user right now: ${context}.`;
+  `You are the AI health coach embedded in the MyHealthBook app. You help with practical advice about food, exercise, sleep and daily habits, tailored to what the user has recorded. You are NOT a doctor: never diagnose, never prescribe or suggest changing a medicine, and encourage seeing a real doctor for anything medical. Keep replies short and practical, and refer to the user's own numbers when relevant.
+
+You can also answer questions about the user's own saved records — test reports, prescriptions, bills, diagnoses, procedures — using only what is listed below. Quote values, units, dates, medicines and amounts exactly as recorded and say which record (date and title) they come from. Totals of bills may be added up from the listed amounts. If the answer isn't in the records, say so plainly instead of guessing. You may say a result is marked high or low on the report, but don't diagnose from it. A medicine from an old prescription is history, not necessarily something they take now — their current medicines are the ones listed in the summary.
+
+What's on record for this user right now: ${context}`;
 
 export async function sendMessage(req, res) {
   const { messages } = req.body || {};

@@ -22,6 +22,7 @@ const PARENT_TAB = {
   trends: 'home',
   insights: 'home',
   learn: 'home',
+  notifications: 'home',
   family: 'me',
   familyMember: 'me',
   premium: 'me',
