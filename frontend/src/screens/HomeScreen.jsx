@@ -152,7 +152,7 @@ export default function HomeScreen() {
 
   return (
     <Screen
-      title={name ? `${greeting()}, ${greetingName(name)}` : greeting()}
+      title={name ? `${greeting()}, ${greetingName(name, data.profile.sex)}` : greeting()}
       subtitle={todayLabel()}
       right={
         <>

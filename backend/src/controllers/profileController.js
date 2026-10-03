@@ -14,6 +14,10 @@ function publicProfile(doc) {
       docEmail: doc.docEmail,
     },
     health: doc.health,
+    /* The care circle is gone (the Family module replaced it), but app
+       1.0.x still reads care.role from this response on launch and
+       crashes without it. Remove once no one is on a build that old. */
+    care: { role: 'logger', circle: [], received: [], day: 0 },
   };
 }
 

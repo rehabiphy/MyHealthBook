@@ -186,7 +186,7 @@ function RootShell({ navigationRef, activeKey }) {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const { user } = useAuth();
   const [promoVisible, closePromo] = usePlanPromo(activeKey);
-  useLaunchGreeting(displayName(data.profile, user), loaded);
+  useLaunchGreeting(displayName(data.profile, user), loaded, data.profile.sex);
 
   const go = (key, params) => navigationRef.navigate(key, params);
   useOpenInboxOnTap(go);

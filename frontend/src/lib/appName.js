@@ -9,12 +9,25 @@ export const dayPart = (d = new Date()) => {
 
 export const greeting = () => `Good ${dayPart()}`;
 
+// a title from the sex set in Profile — none for "other" or unset, rather than guess
+const TITLE = { male: 'Mr.', female: 'Ms.' };
+// written out for the voice: some phones' text-to-speech spell "Ms." as letters
+const SPOKEN_TITLE = { male: 'Mister', female: 'Miz' };
+
 /* The name a greeting uses: the last name when one was entered ("Parth
-   Panchal" → "Panchal"), otherwise the only name there is. Shared by
-   the Home screen and the spoken greeting at launch so they match. */
-export const greetingName = fullName => {
-  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : '';
+   Panchal" → "Panchal"), otherwise the only name there is, with Mr./Ms.
+   in front when the profile says which ("Mr. Panchal"). Shared by the
+   Home screen and the spoken greeting at launch so they match;
+   `spoken` gives the form text-to-speech pronounces properly. */
+export const greetingName = (fullName, sex, { spoken = false } = {}) => {
+  const parts = String(fullName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return '';
+  const name = parts[parts.length - 1];
+  const title = (spoken ? SPOKEN_TITLE : TITLE)[sex];
+  return title ? `${title} ${name}` : name;
 };
 
 /* The name to greet someone by: what they set in Profile, else the
