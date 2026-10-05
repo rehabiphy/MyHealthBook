@@ -77,10 +77,10 @@ export default function SafetyCard() {
      nothing about why. Optional: the SOS still goes out without it. */
   const askLocation = async () => {
     const ok = await ask({
-      title: 'Share your location in an SOS?',
-      body: 'Your family gets a Google Maps link to where your phone is. A fall usually happens with the app closed, so choose "Allow all the time" on the next screen.',
-      confirmLabel: 'Continue',
-      cancelLabel: 'Skip',
+      title: 'Allow location for your SOS?',
+      body: 'MyHealthBook collects location data to share where your phone is with your family circle when an SOS is sent, even when the app is closed or not in use. Your location is collected only at the moment of an SOS, sent to them as a Google Maps link, and never used for ads. To allow it, choose "Allow all the time" on the next screen.',
+      confirmLabel: 'Allow',
+      cancelLabel: 'No thanks',
     });
     if (!ok) return;
     try {
