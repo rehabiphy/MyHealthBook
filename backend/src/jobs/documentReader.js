@@ -1,6 +1,7 @@
 import HistoryRecord from '../models/HistoryRecord.js';
-import { complete, LlmError } from '../utils/llm.js';
+import { complete, llmConfigured, LlmError } from '../utils/llm.js';
 import { getObjectBytes, s3Configured } from '../utils/s3.js';
+import { scanDocument } from '../utils/textract.js';
 
 /* Reads each report file once with a vision model and keeps what it
    says as plain text on the record (record.extract), so the AI chat can
@@ -13,15 +14,16 @@ import { getObjectBytes, s3Configured } from '../utils/s3.js';
    before this existed — with up to MAX_ATTEMPTS tries each.
 
    Photos (JPG/PNG/WEBP) and PDFs only: OpenAI can't open HEIC, so those
-   are marked unsupported and the chat falls back to the typed details. */
+   are marked unsupported and the chat falls back to the typed details.
+
+   With TEXTRACT_ENABLED=true, Amazon Textract scans the file first and
+   its text, tables and form fields go to the AI alongside the file. */
 
 const SWEEP_MS = 5 * 60 * 1000;
 const BATCH = 20;
 const MAX_ATTEMPTS = 3;
 const MAX_TEXT = 4000;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-// a better reader than the chat's default nano model, still cheap — one call per file, ever
-const MODEL = () => process.env.OPENAI_DOCUMENT_MODEL || 'gpt-4.1-mini';
 
 const FOCUS = {
   test: 'every test name with its result, unit and reference range, flagging any marked high/low; the lab and date',
@@ -50,13 +52,19 @@ async function readOne(record) {
   const { key, type, name } = record.attachment;
   if (type !== 'application/pdf' && !IMAGE_TYPES.includes(type)) return { status: 'unsupported', text: '' };
 
-  const bytes = await getObjectBytes(key);
+  const [bytes, scanned] = await Promise.all([getObjectBytes(key), scanDocument(key, type)]);
+  const intro = scanned
+    ? `Record: ${record.title}
+
+OCR scan of the same file (use it to copy numbers exactly; trust the file if they disagree):
+${scanned}`
+    : `Record: ${record.title}`;
   const text = await complete({
-    model: MODEL(),
+    purpose: 'document',
     temperature: 0,
     messages: [
       { role: 'system', content: PROMPT(record.type) },
-      { role: 'user', content: [{ type: 'text', text: `Record: ${record.title}` }, contentPart(bytes, type, name)] },
+      { role: 'user', content: [{ type: 'text', text: intro }, contentPart(bytes, type, name)] },
     ],
   });
   return { status: 'done', text: text.slice(0, MAX_TEXT) };
@@ -88,7 +96,7 @@ let running = false;
 let again = false; // a file saved mid-sweep is read as soon as the sweep ends, not 5 minutes later
 
 async function sweep() {
-  if (!s3Configured() || !process.env.OPENAI_API_KEY) return;
+  if (!s3Configured() || !llmConfigured()) return;
   if (running) {
     again = true;
     return;

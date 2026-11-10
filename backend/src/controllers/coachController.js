@@ -5,8 +5,10 @@ import Profile from '../models/Profile.js';
 import Medicine from '../models/Medicine.js';
 import DoseLog from '../models/DoseLog.js';
 import HistoryRecord from '../models/HistoryRecord.js';
+import { complete, llmConfigured } from '../utils/llm.js';
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const MAX_TURNS = 20;
+const MAX_TURN_CHARS = 6000;
 
 function classifyBP(sys, dia) {
   if (sys > 180 || dia > 120) return 'hypertensive crisis';
@@ -164,32 +166,24 @@ export async function sendMessage(req, res) {
     return res.status(400).json({ success: false, message: 'Invalid message format' });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ success: false, message: "The AI coach isn't configured yet — ask the app owner to add an OpenAI API key." });
+  if (!llmConfigured()) {
+    return res.status(500).json({ success: false, message: "The AI coach isn't configured yet — ask the app owner to set up the AI provider." });
   }
+
+  // Only the recent conversation goes to the AI — keeps each request's size (and cost) bounded.
+  const recent = messages.slice(-MAX_TURNS).map(m => ({ role: m.role, content: m.content.slice(0, MAX_TURN_CHARS) }));
+  while (recent.length && recent[0].role !== 'user') recent.shift();
+  if (!recent.length) return res.status(400).json({ success: false, message: 'No message to send' });
 
   const context = await buildAccountContext(req.user.id);
 
-  const response = await fetch(OPENAI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-nano',
-      messages: [{ role: 'system', content: SYSTEM_PROMPT(context) }, ...messages.map(m => ({ role: m.role, content: m.content }))],
+  let reply;
+  try {
+    reply = await complete({
+      messages: [{ role: 'system', content: SYSTEM_PROMPT(context) }, ...recent],
       temperature: 0.6,
-    }),
-  });
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    console.error('OpenAI request failed:', response.status, errBody);
-    return res.status(502).json({ success: false, message: "The AI coach couldn't respond right now. Please try again." });
-  }
-
-  const json = await response.json();
-  const reply = json.choices?.[0]?.message?.content?.trim();
-  if (!reply) {
+    });
+  } catch {
     return res.status(502).json({ success: false, message: "The AI coach couldn't respond right now. Please try again." });
   }
 

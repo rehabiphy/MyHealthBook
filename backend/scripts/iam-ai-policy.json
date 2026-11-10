@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockModelsMumbaiOnly",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+      "Resource": "arn:aws:bedrock:ap-south-1::foundation-model/*"
+    },
+    {
+      "Sid": "TextractReportsMumbaiOnly",
+      "Effect": "Allow",
+      "Action": ["textract:StartDocumentAnalysis", "textract:GetDocumentAnalysis"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "ap-south-1" } }
+    }
+  ]
+}

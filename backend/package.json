@@ -7,10 +7,14 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "import:meds": "node scripts/importMedicineCatalog.js"
+    "import:meds": "node scripts/importMedicineCatalog.js",
+    "test:ai": "node scripts/testAi.js",
+    "test:textract": "node scripts/testTextract.js"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1165.0",
     "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/client-textract": "^3.1164.0",
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

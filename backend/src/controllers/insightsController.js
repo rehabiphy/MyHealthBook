@@ -4,8 +4,8 @@ import BodyReading from '../models/BodyReading.js';
 import SugarReading from '../models/SugarReading.js';
 import Medicine from '../models/Medicine.js';
 import { resolveEntitlement, canAccess, limitOf, FEATURES } from '../utils/entitlements.js';
+import { complete, llmConfigured } from '../utils/llm.js';
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_POINTS = 60;
 
@@ -54,11 +54,7 @@ async function buildTrendContext(userId) {
     parts.push('No weight readings in the last 90 days.');
   }
 
-  parts.push(
-    activeMeds.length
-      ? `${activeMeds.length} active medicine${activeMeds.length === 1 ? '' : 's'}: ${activeMeds.map(m => m.name).join(', ')}.`
-      : 'No active medicines on record.',
-  );
+  parts.push(activeMeds.length ? `${activeMeds.length} active medicine${activeMeds.length === 1 ? '' : 's'}: ${activeMeds.map(m => m.name).join(', ')}.` : 'No active medicines on record.');
 
   return parts.join('\n\n');
 }
@@ -67,9 +63,8 @@ const SYSTEM_PROMPT = context =>
   `You are the AI health insights engine embedded in the MyHealthBook app. You analyze the trend in a user's own recorded blood pressure, blood glucose and weight readings over the last 90 days and explain what's changed in plain language. You are NOT a doctor: never diagnose, never prescribe or suggest changing a medicine — encourage seeing a real doctor for anything concerning. For each metric that has data, say whether it's improving, worsening or stable, then give 2-4 short, practical takeaways. Keep it concise.\n\nWhat's on record for this user over the last 90 days:\n\n${context}`;
 
 export async function generateInsights(req, res) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ success: false, message: "AI Insights isn't configured yet — ask the app owner to add an OpenAI API key." });
+  if (!llmConfigured()) {
+    return res.status(500).json({ success: false, message: "AI Insights isn't configured yet — ask the app owner to set up the AI provider." });
   }
 
   let user = await User.findById(req.user.id);
@@ -89,11 +84,7 @@ export async function generateInsights(req, res) {
     }
     // Atomic increment, re-checked in the filter — closes the race between
     // the read above and this write (e.g. two concurrent taps).
-    user = await User.findOneAndUpdate(
-      { _id: user._id, insightsMonthKey: key, insightsUsedThisMonth: { $lt: monthlyLimit } },
-      { $inc: { insightsUsedThisMonth: 1 } },
-      { new: true },
-    );
+    user = await User.findOneAndUpdate({ _id: user._id, insightsMonthKey: key, insightsUsedThisMonth: { $lt: monthlyLimit } }, { $inc: { insightsUsedThisMonth: 1 } }, { new: true });
     if (!user) {
       return res.status(403).json({ success: false, quotaExceeded: true, message: 'Free limit reached for this month.' });
     }
@@ -101,28 +92,16 @@ export async function generateInsights(req, res) {
 
   const context = await buildTrendContext(req.user.id);
 
-  const response = await fetch(OPENAI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-nano',
+  let reply;
+  try {
+    reply = await complete({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT(context) },
         { role: 'user', content: 'Analyze my recent health trends.' },
       ],
       temperature: 0.6,
-    }),
-  });
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    console.error('OpenAI request failed:', response.status, errBody);
-    return res.status(502).json({ success: false, message: "AI Insights couldn't respond right now. Please try again." });
-  }
-
-  const json = await response.json();
-  const reply = json.choices?.[0]?.message?.content?.trim();
-  if (!reply) {
+    });
+  } catch {
     return res.status(502).json({ success: false, message: "AI Insights couldn't respond right now. Please try again." });
   }
 
