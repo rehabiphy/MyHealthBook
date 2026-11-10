@@ -57,13 +57,16 @@ export const MEDICINE_INDEX_BODY = {
   mappings: {
     dynamic: 'strict',
     properties: {
+      // norms off: a short name ("Dologel") mustn't outrank a longer one ("Dolo 650 Tablet") just for being short
       name: {
         type: 'text',
-        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard' }, key: { type: 'keyword', normalizer: 'lower' } },
+        norms: false,
+        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard', norms: false }, key: { type: 'keyword', normalizer: 'lower' } },
       },
       composition: {
         type: 'text',
-        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard' }, key: { type: 'keyword', normalizer: 'lower', ignore_above: 512 } },
+        norms: false,
+        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard', norms: false }, key: { type: 'keyword', normalizer: 'lower', ignore_above: 512 } },
       },
       manufacturer: { type: 'text' },
       packSize: { type: 'keyword', index: false },
@@ -73,18 +76,21 @@ export const MEDICINE_INDEX_BODY = {
   },
 };
 
-/* Best match first: names starting with the query, then every query word
-   as a prefix of the name, then typo-tolerant name matches, then the
-   same for the composition (so a salt finds its brands). Discontinued
-   medicines sink below current ones. */
+/* Best match first: names starting with the query, names containing the
+   query words as whole words ("dolo" → "Dolo 650", not "Dologel"), then
+   every query word as a prefix of the name, then typo-tolerant name
+   matches, then the same for the composition (so a salt finds its
+   brands). Discontinued medicines score a third, so they sink below
+   current ones. Equal scores fall back to alphabetical order. */
 export async function searchMedicines(q, { from, size }) {
   const query = q
     ? {
-        bool: {
-          must: {
+        function_score: {
+          query: {
             bool: {
               should: [
                 { match_phrase_prefix: { name: { query: q, boost: 10 } } },
+                { match: { name: { query: q, operator: 'and', boost: 8 } } },
                 { match: { 'name.ac': { query: q, operator: 'and', boost: 6 } } },
                 { match: { name: { query: q, fuzziness: 'AUTO', prefix_length: 1, boost: 3 } } },
                 { match: { 'composition.ac': { query: q, operator: 'and', boost: 2 } } },
@@ -93,7 +99,8 @@ export async function searchMedicines(q, { from, size }) {
               minimum_should_match: 1,
             },
           },
-          should: [{ term: { discontinued: { value: false, boost: 2 } } }],
+          functions: [{ filter: { term: { discontinued: true } }, weight: 0.3 }],
+          boost_mode: 'multiply',
         },
       }
     : { match_all: {} };
