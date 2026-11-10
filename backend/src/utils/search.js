@@ -57,16 +57,14 @@ export const MEDICINE_INDEX_BODY = {
   mappings: {
     dynamic: 'strict',
     properties: {
-      // norms off: a short name ("Dologel") mustn't outrank a longer one ("Dolo 650 Tablet") just for being short
+      // shorter names score a little higher, so plain "Paracetamol Tablet" beats long combination products
       name: {
         type: 'text',
-        norms: false,
-        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard', norms: false }, key: { type: 'keyword', normalizer: 'lower' } },
+        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard' }, key: { type: 'keyword', normalizer: 'lower' } },
       },
       composition: {
         type: 'text',
-        norms: false,
-        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard', norms: false }, key: { type: 'keyword', normalizer: 'lower', ignore_above: 512 } },
+        fields: { ac: { type: 'text', analyzer: 'prefix', search_analyzer: 'standard' }, key: { type: 'keyword', normalizer: 'lower', ignore_above: 512 } },
       },
       manufacturer: { type: 'text' },
       packSize: { type: 'keyword', index: false },
