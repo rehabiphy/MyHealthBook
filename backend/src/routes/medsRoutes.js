@@ -13,6 +13,7 @@ import {
   getSettings,
   updateSettings,
   searchCatalog,
+  catalogAlternatives,
 } from '../controllers/medsController.js';
 
 const router = Router();
@@ -21,6 +22,7 @@ const shared = familyAccess('medicines');
 router.get('/', requireAuth, shared, catchAsync(getMedicines));
 // the catalog is global reference data, not anyone's record — no family check needed
 router.get('/catalog', requireAuth, catchAsync(searchCatalog));
+router.get('/catalog/:id/alternatives', requireAuth, catchAsync(catalogAlternatives));
 router.post('/', requireAuth, shared, catchAsync(createMedicine));
 router.patch('/:id/status', requireAuth, shared, catchAsync(setMedicineStatus));
 router.patch('/:id/restock', requireAuth, shared, catchAsync(restockMedicine));

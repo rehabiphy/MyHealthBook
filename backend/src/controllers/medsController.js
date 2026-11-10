@@ -1,7 +1,9 @@
 import Medicine from '../models/Medicine.js';
 import DoseLog from '../models/DoseLog.js';
 import MedSettings from '../models/MedSettings.js';
+import mongoose from 'mongoose';
 import MedicineCatalog, { tokenize } from '../models/MedicineCatalog.js';
+import { searchEnabled, searchMedicines, sameCompositionMedicines } from '../utils/search.js';
 import { isNonEmptyString, isValidStringArray, isOneOf, isValidNumber, isValidDayKey } from '../utils/validators.js';
 
 const SLOT_KEYS = ['empty', 'breakfast', 'lunch', 'dinner', 'bed'];
@@ -30,6 +32,7 @@ function publicSettings(doc) {
 
 const CATALOG_FIELDS = { _id: 1, name: 1, manufacturer: 1, packSize: 1, composition: 1, price: 1, discontinued: 1 };
 const CATALOG_MAX_LIMIT = 50;
+const ALTERNATIVES_LIMIT = 20;
 const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function publicCatalogItem(doc) {
@@ -51,30 +54,26 @@ function publicCatalogItem(doc) {
         the name or composition ("telmisartan" → "Arbitel 40 Tablet")
    Both are plain index-backed sorted finds, so broad queries like "ta"
    stay fast — no in-memory ranking over tens of thousands of matches.
-   Uses limit+1 to report hasMore instead of counting the whole list. */
+   Uses limit+1 to report hasMore instead of counting the whole list.
+   With SEARCH_ENABLED=true, OpenSearch answers instead (utils/search.js):
+   same response, ranked by best match and tolerant of typos. */
 export async function searchCatalog(req, res) {
-  const q = String(req.query.q || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
+  const q = String(req.query.q || '').trim().toLowerCase().replace(/s+/g, ' ').slice(0, 80);
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(CATALOG_MAX_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const skip = (page - 1) * limit;
   const want = limit + 1;
-  const sorted = (filter, s, n) => MedicineCatalog.find(filter, CATALOG_FIELDS).sort({ nameLower: 1, _id: 1 }).skip(s).limit(n).lean();
 
-  let docs;
-  const tokens = tokenize(q);
-  if (!tokens.length) {
-    docs = await sorted({}, skip, want);
-  } else {
-    const prefix = new RegExp(`^${escapeRegex(q)}`);
-    const byName = { nameLower: prefix };
-    const byWords = { words: { $all: tokens.map(t => new RegExp(`^${escapeRegex(t)}`)) }, nameLower: { $not: prefix } };
-
-    const nameCount = await MedicineCatalog.countDocuments(byName);
-    docs = skip < nameCount ? await sorted(byName, skip, want) : [];
-    if (docs.length < want) {
-      docs = docs.concat(await sorted(byWords, Math.max(0, skip - nameCount), want - docs.length));
+  let docs = null;
+  // OpenSearch when it's on (typo-tolerant, best match first); MongoDB otherwise or if it fails
+  if (searchEnabled() && skip + want <= 10000) {
+    try {
+      docs = await searchMedicines(q, { from: skip, size: want });
+    } catch (err) {
+      warnSearchDown(err);
     }
   }
+  if (!docs) docs = await mongoCatalogSearch(q, skip, want);
 
   const hasMore = docs.length > limit;
   return res.json({
@@ -84,6 +83,60 @@ export async function searchCatalog(req, res) {
     hasMore,
     items: docs.slice(0, limit).map(publicCatalogItem),
   });
+}
+
+async function mongoCatalogSearch(q, skip, want) {
+  const sorted = (filter, s, n) => MedicineCatalog.find(filter, CATALOG_FIELDS).sort({ nameLower: 1, _id: 1 }).skip(s).limit(n).lean();
+  const tokens = tokenize(q);
+  if (!tokens.length) return sorted({}, skip, want);
+
+  const prefix = new RegExp(`^${escapeRegex(q)}`);
+  const byName = { nameLower: prefix };
+  const byWords = { words: { $all: tokens.map(t => new RegExp(`^${escapeRegex(t)}`)) }, nameLower: { $not: prefix } };
+
+  const nameCount = await MedicineCatalog.countDocuments(byName);
+  let docs = skip < nameCount ? await sorted(byName, skip, want) : [];
+  if (docs.length < want) {
+    docs = docs.concat(await sorted(byWords, Math.max(0, skip - nameCount), want - docs.length));
+  }
+  return docs;
+}
+
+// one log line a minute at most while OpenSearch is unreachable, not one per keystroke
+let lastSearchWarn = 0;
+function warnSearchDown(err) {
+  if (Date.now() - lastSearchWarn < 60 * 1000) return;
+  lastSearchWarn = Date.now();
+  console.warn('OpenSearch unavailable, using MongoDB search —', err.meta?.statusCode || '', err.message);
+}
+
+/* GET /api/meds/catalog/:id/alternatives
+   Current medicines with exactly the same composition (same salt and
+   strength) as the given catalog entry, cheapest first. */
+export async function catalogAlternatives(req, res) {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: 'Invalid medicine' });
+
+  const med = await MedicineCatalog.findById(id, CATALOG_FIELDS).lean();
+  if (!med) return res.status(404).json({ success: false, message: 'Medicine not found' });
+  if (!med.composition) return res.json({ success: true, medicine: publicCatalogItem(med), items: [] });
+
+  let docs = null;
+  if (searchEnabled()) {
+    try {
+      docs = await sameCompositionMedicines(med.composition, id, ALTERNATIVES_LIMIT);
+    } catch (err) {
+      warnSearchDown(err);
+    }
+  }
+  if (!docs) {
+    docs = await MedicineCatalog.find({ composition: med.composition, discontinued: false, price: { $ne: null }, _id: { $ne: med._id } }, CATALOG_FIELDS)
+      .sort({ price: 1, nameLower: 1 })
+      .limit(ALTERNATIVES_LIMIT)
+      .lean();
+  }
+
+  return res.json({ success: true, medicine: publicCatalogItem(med), items: docs.map(publicCatalogItem) });
 }
 
 export async function getMedicines(req, res) {
