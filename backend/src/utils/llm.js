@@ -48,7 +48,7 @@ export async function complete({ messages, temperature = 0.6, jsonSchema, purpos
 // ---------- OpenAI ----------
 
 async function openaiComplete({ messages, temperature, jsonSchema, purpose }) {
-  const model = purpose === 'document' ? process.env.OPENAI_DOCUMENT_MODEL || 'gpt-4.1-mini' : process.env.OPENAI_MODEL || 'gpt-4.1-nano';
+  const model = purpose === 'document' ? process.env.OPENAI_DOCUMENT_MODEL || 'gpt-4.1-mini' : process.env.OPENAI_MODEL || 'gpt-5.4-nano';
   const response = await fetch(OPENAI_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },

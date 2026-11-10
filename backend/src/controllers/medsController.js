@@ -58,7 +58,7 @@ function publicCatalogItem(doc) {
    With SEARCH_ENABLED=true, OpenSearch answers instead (utils/search.js):
    same response, ranked by best match and tolerant of typos. */
 export async function searchCatalog(req, res) {
-  const q = String(req.query.q || '').trim().toLowerCase().replace(/s+/g, ' ').slice(0, 80);
+  const q = String(req.query.q || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(CATALOG_MAX_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const skip = (page - 1) * limit;
