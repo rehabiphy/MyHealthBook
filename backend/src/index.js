@@ -5,10 +5,12 @@ import { resumeSosTimers } from './controllers/sosController.js';
 import { startHealthTips } from './jobs/healthTips.js';
 import { startSubscriptionJobs } from './jobs/subscriptions.js';
 import { startDocumentReader } from './jobs/documentReader.js';
+import { startCache } from './utils/cache.js';
 
 const PORT = process.env.PORT || 8000;
 
 await connectDB();
+startCache();
 await resumeSosTimers();
 startHealthTips();
 startSubscriptionJobs();

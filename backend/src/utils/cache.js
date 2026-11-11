@@ -26,8 +26,15 @@ function redis() {
       retryStrategy: times => Math.min(times * 500, 10000),
     });
     client.on('error', warnCacheDown);
+    client.on('ready', () => console.log('Cache connected'));
   }
   return client;
+}
+
+/** Opens the connection at server start, so the first requests don't
+    skip the cache while it is still connecting. */
+export function startCache() {
+  if (cacheEnabled()) redis();
 }
 
 // one log line a minute at most while the cache is unreachable
