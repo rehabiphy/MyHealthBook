@@ -4,10 +4,18 @@ import MedSettings from '../models/MedSettings.js';
 import mongoose from 'mongoose';
 import MedicineCatalog, { tokenize } from '../models/MedicineCatalog.js';
 import { searchEnabled, searchMedicines, sameCompositionMedicines } from '../utils/search.js';
+import { cacheGet, cacheSet } from '../utils/cache.js';
 import { isNonEmptyString, isValidStringArray, isOneOf, isValidNumber, isValidDayKey } from '../utils/validators.js';
 
 const SLOT_KEYS = ['empty', 'breakfast', 'lunch', 'dinner', 'bed'];
 const TAKEN_WINDOW_DAYS = 60;
+
+/* Catalog answers are kept in the shared cache (utils/cache.js) for an
+   hour. Keys name the search engine that made the answer, so switching
+   SEARCH_ENABLED never serves the other engine's results; MongoDB
+   answers given only because OpenSearch failed are not stored. */
+const CATALOG_CACHE_TTL = 60 * 60;
+const catalogEngine = () => (searchEnabled() ? 'os' : 'db');
 
 function publicMedicine(doc) {
   return {
@@ -64,25 +72,34 @@ export async function searchCatalog(req, res) {
   const skip = (page - 1) * limit;
   const want = limit + 1;
 
+  // popular searches ("paracetamol", "dolo") come straight from the shared cache
+  const cacheKey = `meds:${catalogEngine()}:search:${page}:${limit}:${q}`;
+  const hit = await cacheGet(cacheKey);
+  if (hit) return res.json(hit);
+
   let docs = null;
+  let fellBack = false;
   // OpenSearch when it's on (typo-tolerant, best match first); MongoDB otherwise or if it fails
   if (searchEnabled() && skip + want <= 10000) {
     try {
       docs = await searchMedicines(q, { from: skip, size: want });
     } catch (err) {
       warnSearchDown(err);
+      fellBack = true;
     }
   }
   if (!docs) docs = await mongoCatalogSearch(q, skip, want);
 
   const hasMore = docs.length > limit;
-  return res.json({
+  const body = {
     success: true,
     page,
     limit,
     hasMore,
     items: docs.slice(0, limit).map(publicCatalogItem),
-  });
+  };
+  if (!fellBack) await cacheSet(cacheKey, body, CATALOG_CACHE_TTL);
+  return res.json(body);
 }
 
 async function mongoCatalogSearch(q, skip, want) {
@@ -117,16 +134,22 @@ export async function catalogAlternatives(req, res) {
   const { id } = req.params;
   if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: 'Invalid medicine' });
 
+  const cacheKey = `meds:${catalogEngine()}:alternatives:${id}`;
+  const hit = await cacheGet(cacheKey);
+  if (hit) return res.json(hit);
+
   const med = await MedicineCatalog.findById(id, CATALOG_FIELDS).lean();
   if (!med) return res.status(404).json({ success: false, message: 'Medicine not found' });
   if (!med.composition) return res.json({ success: true, medicine: publicCatalogItem(med), items: [] });
 
   let docs = null;
+  let fellBack = false;
   if (searchEnabled()) {
     try {
       docs = await sameCompositionMedicines(med.composition, id, ALTERNATIVES_LIMIT);
     } catch (err) {
       warnSearchDown(err);
+      fellBack = true;
     }
   }
   if (!docs) {
@@ -136,7 +159,9 @@ export async function catalogAlternatives(req, res) {
       .lean();
   }
 
-  return res.json({ success: true, medicine: publicCatalogItem(med), items: docs.map(publicCatalogItem) });
+  const body = { success: true, medicine: publicCatalogItem(med), items: docs.map(publicCatalogItem) };
+  if (!fellBack) await cacheSet(cacheKey, body, CATALOG_CACHE_TTL);
+  return res.json(body);
 }
 
 export async function getMedicines(req, res) {
